@@ -1,0 +1,15 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Placeholder until TICKET-1 lands the Next.js app.
+      # TICKET-1 replaces this with: setup-node, npm ci, npm run build, npm test.
+      - name: Placeholder
+        run: echo "CI stub — real build+test arrive with TICKET-1"

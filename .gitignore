@@ -1,0 +1,12 @@
+node_modules/
+.next/
+dist/
+out/
+cdk.out/
+.env
+.env.*
+!.env.example
+.vercel/
+/.worktrees/
+.DS_Store
+*.log
