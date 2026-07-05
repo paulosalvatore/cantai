@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>cantai — /tv</title>
+<link rel="stylesheet" href="cantai.css">
+<style>
+  html, body { height: 100%; overflow: hidden; }
+  .tv {
+    height: 100vh;
+    display: flex; flex-direction: column;
+    padding: 2.5vw 3vw;
+    gap: 2vw;
+  }
+  .tv-top { display: flex; align-items: center; justify-content: space-between; }
+  .tv-top .wordmark { font-size: 2.6vw; }
+  .tv-venue { font-size: 1.5vw; color: var(--c-text-muted); font-weight: 600; }
+
+  .tv-main { flex: 1; display: flex; gap: 3vw; min-height: 0; }
+  .tv-video {
+    flex: 1.5;
+    border-radius: 1.2vw;
+    background: #000;
+    border: 2px solid var(--c-border);
+    display: flex; align-items: center; justify-content: center;
+    position: relative;
+    box-shadow: 0 0 3vw rgba(255, 61, 113, .18);
+  }
+  .tv-video .play-hint { font-size: 6vw; opacity: .5; }
+  .tv-video .yt-tag {
+    position: absolute; bottom: 1vw; right: 1vw;
+    font-size: 1vw; color: var(--c-text-dim);
+    background: rgba(13,10,20,.7); padding: .3vw .8vw; border-radius: .5vw;
+  }
+  .tv-meta { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 1.2vw; min-width: 0; }
+  .tv-label { font-size: 1.4vw; font-weight: 700; letter-spacing: .12em; color: var(--c-amber); }
+  .tv-hero { font-size: 4.4vw; font-weight: 800; line-height: 1.08; letter-spacing: -0.01em; }
+  .tv-singer { font-size: 2.9vw; font-weight: 700; }
+  .tv-singer .mesa { color: var(--c-text-muted); font-weight: 600; }
+  .tv-progress { height: .7vw; border-radius: 99px; background: var(--c-surface-2); overflow: hidden; margin-top: 1vw; }
+  .tv-progress > div { height: 100%; width: 62%; background: var(--g-stage); border-radius: 99px; }
+  .tv-times { display: flex; justify-content: space-between; font-size: 1.2vw; color: var(--c-text-dim); font-weight: 600; }
+
+  .tv-next { display: flex; align-items: stretch; gap: 1.5vw; }
+  .tv-next-label {
+    display: flex; align-items: center;
+    font-size: 1.4vw; font-weight: 800; letter-spacing: .12em; color: var(--c-text-muted);
+    writing-mode: horizontal-tb;
+    padding-right: .5vw;
+  }
+  .next-card {
+    flex: 1;
+    background: var(--c-surface);
+    border: 1px solid var(--c-border);
+    border-radius: 1vw;
+    padding: 1.2vw 1.5vw;
+    display: flex; align-items: center; gap: 1.2vw;
+    min-width: 0;
+  }
+  .next-card .n { font-size: 2.2vw; font-weight: 800; color: var(--c-pink); flex: none; }
+  .next-card .who { font-size: 2vw; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .next-card > div { flex: 1 1 auto; min-width: 0; }
+  .next-card .what { font-size: 1.4vw; color: var(--c-text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: .2vw; }
+  .next-card .mesa { font-size: 1.3vw; color: var(--c-amber); font-weight: 700; flex: none; }
+
+  .tv-join {
+    display: flex; align-items: center; gap: 1.2vw;
+    background: var(--c-surface); border: 1px solid var(--c-border);
+    border-radius: 1vw; padding: 1vw 1.5vw; flex: none;
+  }
+  .qr {
+    width: 5.5vw; height: 5.5vw; flex: none;
+    background:
+      repeating-linear-gradient(0deg, #F7F3FC 0 .5vw, transparent 0 1vw),
+      repeating-linear-gradient(90deg, #F7F3FC 0 .5vw, #0D0A14 0 1vw);
+    border-radius: .5vw;
+  }
+  .tv-join .cta { font-size: 1.5vw; font-weight: 800; line-height: 1.25; }
+  .tv-join .url { font-size: 1.3vw; color: var(--c-amber); font-weight: 700; }
+</style>
+</head>
+<body>
+<div class="mock-nav"><a href="index.html">mockups</a> · /tv</div>
+<div class="tv">
+  <div class="tv-top">
+    <span class="wordmark">cantai</span>
+    <span class="tv-venue">Bar do Zé · noite de karaokê</span>
+  </div>
+
+  <div class="tv-main">
+    <div class="tv-video">
+      <span class="play-hint">▶</span>
+      <span class="yt-tag">YouTube · player incorporado</span>
+    </div>
+    <div class="tv-meta">
+      <span class="tv-label">TOCANDO AGORA</span>
+      <h1 class="tv-hero">Garota de Ipanema</h1>
+      <div class="tv-singer">🎤 Beto <span class="mesa">· Mesa 3</span></div>
+      <div>
+        <div class="tv-progress"><div></div></div>
+        <div class="tv-times"><span>2:41</span><span>4:20</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tv-next">
+    <span class="tv-next-label">A SEGUIR</span>
+    <div class="next-card">
+      <span class="n">2</span>
+      <div style="min-width:0;">
+        <div class="who">Carla</div>
+        <div class="what">Como Nossos Pais</div>
+      </div>
+      <span class="spacer"></span>
+      <span class="mesa">Mesa 5</span>
+    </div>
+    <div class="next-card">
+      <span class="n">3</span>
+      <div style="min-width:0;">
+        <div class="who">DJ Formiga 🎶</div>
+        <div class="what">Baile de Favela (remix)</div>
+      </div>
+      <span class="spacer"></span>
+      <span class="mesa">balcão</span>
+    </div>
+    <div class="next-card">
+      <span class="n">4</span>
+      <div style="min-width:0;">
+        <div class="who">Marina</div>
+        <div class="what">Evidências</div>
+      </div>
+      <span class="spacer"></span>
+      <span class="mesa">Mesa 7</span>
+    </div>
+    <div class="tv-join">
+      <div class="qr" aria-label="QR code (placeholder)"></div>
+      <div>
+        <div class="cta">Escaneia e canta!</div>
+        <div class="url">cantai.app/bar-do-ze</div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

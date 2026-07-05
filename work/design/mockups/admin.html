@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>cantai — admin do bar</title>
+<link rel="stylesheet" href="cantai.css">
+<style>
+  .admin { max-width: 1080px; margin: 0 auto; padding: 32px 24px; }
+  .admin-top { display: flex; align-items: center; gap: 16px; padding-bottom: 24px; }
+  .admin-top .wordmark { font-size: 28px; }
+  .modes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .mode-option {
+    padding: 18px 16px;
+    background: var(--c-surface);
+    border: 2px solid var(--c-border);
+    border-radius: var(--r-card);
+    cursor: pointer;
+  }
+  .mode-option .name { font-size: 17px; font-weight: 800; }
+  .mode-option .rule { font-size: 13px; color: var(--c-text-muted); margin-top: 6px; line-height: 1.4; }
+  .mode-option.active {
+    border-color: var(--c-pink);
+    background: rgba(255, 61, 113, .09);
+  }
+  .mode-option.active .name { color: var(--c-pink); }
+  .mode-option .tag { margin-top: 10px; }
+  .cols { display: grid; grid-template-columns: 1.4fr 1fr; gap: 20px; margin-top: 24px; align-items: start; }
+  .controls { display: flex; gap: 10px; margin-top: 14px; }
+  .controls .btn-secondary { flex: 1; }
+  .btn-danger-ghost {
+    background: none; border: 0; color: var(--c-danger);
+    font-size: 13px; font-weight: 700; cursor: pointer; padding: 6px;
+  }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 20px; }
+  .stat { text-align: center; padding: 14px 8px; }
+  .stat .n { font-size: 26px; font-weight: 800; }
+  .stat .l { font-size: 12px; color: var(--c-text-dim); margin-top: 4px; text-transform: uppercase; letter-spacing: .06em; }
+</style>
+</head>
+<body>
+<div class="mock-nav"><a href="index.html">mockups</a> · admin</div>
+<div class="admin">
+  <div class="admin-top">
+    <span class="wordmark">cantai</span>
+    <span class="chip">Admin · Bar do Zé</span>
+    <span class="spacer"></span>
+    <span class="chip live">/tv AO VIVO</span>
+    <a class="btn-secondary" style="padding:0 20px;" href="tv.html">Abrir /tv ↗</a>
+  </div>
+
+  <div class="stack" style="gap:10px;">
+    <span class="label">Modo da noite</span>
+    <div class="modes">
+      <div class="mode-option active" role="radio" aria-checked="true">
+        <div class="name">🎤 Karaokê completo</div>
+        <div class="rule">Todo mundo entra na fila, ordem de chegada.</div>
+        <div class="chip sing tag">ATIVO</div>
+      </div>
+      <div class="mode-option" role="radio" aria-checked="false">
+        <div class="name">🍻 2 por mesa</div>
+        <div class="rule">No máximo 2 músicas na fila por mesa; a mesa volta quando tocar.</div>
+      </div>
+      <div class="mode-option" role="radio" aria-checked="false">
+        <div class="name">🙋 1 por pessoa</div>
+        <div class="rule">Cada pessoa mantém 1 música na fila; rodízio justo por identidade.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="cols">
+    <div>
+      <span class="label">Fila</span>
+      <div class="stack" style="gap:8px; margin-top:10px;">
+        <div class="queue-row playing">
+          <span class="pos">▶</span>
+          <div class="song-info">
+            <div class="queue-who">Beto <span class="meta">· Mesa 3</span></div>
+            <div class="queue-song">Garota de Ipanema · 2:41 / 4:20</div>
+          </div>
+          <span class="chip live">AGORA</span>
+        </div>
+        <div class="queue-row">
+          <span class="pos">2</span>
+          <div class="song-info">
+            <div class="queue-who">Carla <span class="meta">· Mesa 5</span></div>
+            <div class="queue-song">Como Nossos Pais</div>
+          </div>
+          <button class="btn-danger-ghost">remover</button>
+        </div>
+        <div class="queue-row">
+          <span class="pos">3</span>
+          <div class="song-info">
+            <div class="queue-who">DJ Formiga <span class="meta">· balcão · 🎶 só curtir</span></div>
+            <div class="queue-song">Baile de Favela (remix)</div>
+          </div>
+          <button class="btn-danger-ghost">remover</button>
+        </div>
+        <div class="queue-row">
+          <span class="pos">4</span>
+          <div class="song-info">
+            <div class="queue-who">Marina <span class="meta">· Mesa 7</span></div>
+            <div class="queue-song">Evidências — Chitãozinho &amp; Xororó</div>
+          </div>
+          <button class="btn-danger-ghost">remover</button>
+        </div>
+      </div>
+      <div class="controls">
+        <button class="btn-secondary">⏸ Pausar</button>
+        <button class="btn-secondary">⏭ Pular música</button>
+      </div>
+    </div>
+
+    <div>
+      <span class="label">A noite em números</span>
+      <div class="stats">
+        <div class="card stat"><div class="n">14</div><div class="l">na fila hoje</div></div>
+        <div class="card stat"><div class="n">9</div><div class="l">cantores</div></div>
+        <div class="card stat"><div class="n">6</div><div class="l">mesas ativas</div></div>
+      </div>
+      <div class="card" style="margin-top:16px;">
+        <span class="label">Entrada do público</span>
+        <p style="margin-top:8px; font-size:15px;">QR na tela /tv ou link direto:</p>
+        <p style="margin-top:6px; font-weight:700; color:var(--c-amber);">cantai.app/bar-do-ze</p>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
