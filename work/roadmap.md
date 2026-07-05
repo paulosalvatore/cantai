@@ -25,11 +25,11 @@ Goal: one venue can run one real karaoke session end-to-end on a public URL.
 
 | Ticket | What | Why | Status |
 |---|---|---|---|
-| TICKET-1 | Walking skeleton: join → paste YouTube link → queue → /tv autoplay, in-memory store | Proves the core loop | in flight |
-| TICKET-2 | Vercel deploy pipeline | Public URL = testable with real people | in flight (blocked on TL creds) |
-| TICKET-3 | Rotation/fairness engine lib | The fairness brain, built pure so it's testable in isolation | in flight |
-| TICKET-4 | Design system | Bar-friendly look before UI multiplies | in flight |
-| TICKET-5 | This roadmap + specs | Product brain: what/why sequenced before build fan-out | this PR |
+| TICKET-1 | Walking skeleton: join → paste YouTube link → queue → /tv autoplay, in-memory store | Proves the core loop | in gates (PR #4, test gate) |
+| TICKET-2 | Vercel deploy pipeline | Public URL = testable with real people | unblocked (TL connected Vercel); queued after PR #4 |
+| TICKET-3 | Rotation/fairness engine lib | The fairness brain, built pure so it's testable in isolation | in gates (PR #3, opus review pass) |
+| TICKET-4 | Design system | Bar-friendly look before UI multiplies | DONE (PR #2 merged, TL-ratified) |
+| TICKET-5 | This roadmap + specs | Product brain: what/why sequenced before build fan-out | DONE (PR #1 merged) |
 
 Exit criteria: live URL; a phone can queue a song; the TV plays it; the whole flow survives a 10-song session.
 
@@ -74,24 +74,25 @@ Goal: flip on the pro plan without degrading the free tier that got us here.
 
 ## Groomed backlog (ordered, post TICKET-5)
 
-Proposal to the Tech Manager/Tech Lead; TM turns these into `work/tickets/` through the normal gates.
+Filed as buildable ticket files in the TICKET-19 batch (2026-07-05) where noted; wave = parallel-dev grouping (see `work/tickets/TICKET-19-pmf-wave-tickets.md`). Renumbering note: the old backlog #12 (house-side feedback-intake agent) is framework work per D-046 — it gets NO cantai ticket number and is filed with the framework TM; telemetry (old #13) therefore took ticket number 12. #18 was appended as a TL follow-up (design ratification, prompt 004).
 
-| # | Ticket (proposed) | One-line rationale |
-|---|---|---|
-| 6 | Durable persistence for queue + sessions | Vercel serverless kills in-memory state between invocations; nothing real ships until state survives — hard prerequisite for every item below. |
-| 7 | Host controls (skip / remove / reorder / pause, host token) | A venue can't run a night without a kill switch; also unblocks no-show handling in the rotation spec. |
-| 8 | In-app YouTube search (server-side Data API key) | Paste-a-link is the #1 patron friction; search-and-tap is table stakes for tipsy users on phones. |
-| 9 | QR join + table number capture | The physical onboarding moment; table identity feeds 2-per-table fairness. |
-| 10 | Wire rotation modes + sing/listen-dance into UI (consumes TICKET-3 lib) | The fairness engine is the product's differentiating brain; spec in `work/planning/rotation-modes-fair-queue.md`. |
-| 11 | Feedback widget + `/api/feedback` + durable feedback store | Zero-friction capture with uuid+nickname; the raw material for the whole feedback loop (depends on #6). |
-| 12 | Feedback-intake agent loop (house side: mine → triage → proposals → close loop) | The progressive-development differentiator; turns feedback into tickets automatically, human-gated. |
-| 13 | Telemetry baseline (anonymous product events + weekly rollup) | We must collect NOW the data that decides ads-vs-paid later; retrofitting loses the early-access window. |
-| 14 | Venue accounts + rooms model | Retention and (later) billing attach to the venue, not the session; prerequisite for PMF-phase features. |
-| 15 | Close-the-loop notifications + public changelog | "You asked, we shipped" converts feedback into loyalty; completes the loop TICKET-11/12 open. |
-| 16 | Venue analytics view (free during early access) | Validates the top pro-feature candidate with real usage before we price it. |
-| 17 | Realtime upgrade evaluation (polling/SSE → ws) | Only if telemetry shows session sizes hurting; deliberate deferral per TICKET-0. |
+| # | Ticket (proposed) | One-line rationale | Filed / status |
+|---|---|---|---|
+| 6 | Durable persistence for queue + sessions | Vercel serverless kills in-memory state between invocations; nothing real ships until state survives — hard prerequisite for every item below. | TICKET-6 filed — wave 1 |
+| 7 | Host controls (skip / remove / reorder / pause, host token) | A venue can't run a night without a kill switch; also unblocks no-show handling in the rotation spec. | TICKET-7 filed — wave 2 |
+| 8 | In-app YouTube search (server-side Data API key) | Paste-a-link is the #1 patron friction; search-and-tap is table stakes for tipsy users on phones. | TICKET-8 filed — wave 1; needs-user: API key |
+| 9 | QR join + table number capture (+ multi-room) | The physical onboarding moment; table identity feeds 2-per-table fairness. | TICKET-9 filed — wave 2 |
+| 10 | Wire rotation modes + sing/listen-dance into UI (consumes TICKET-3 lib) | The fairness engine is the product's differentiating brain; spec in `work/planning/rotation-modes-fair-queue.md`. | TICKET-10 filed — wave 3; folds PR #3 spec↔lib alignment |
+| 11 | Feedback widget + `/api/feedback` + durable feedback store | Zero-friction capture with uuid+nickname; the raw material for the whole feedback loop (depends on #6). | TICKET-11 filed — wave 2 |
+| — | Feedback-intake agent loop (house side: mine → triage → proposals → close loop) | The progressive-development differentiator; turns feedback into tickets automatically, human-gated. | framework-side (D-046) — file with framework TM; no cantai ticket number |
+| 12 | Telemetry baseline (anonymous product events + weekly rollup) | We must collect NOW the data that decides ads-vs-paid later; retrofitting loses the early-access window. | TICKET-12 filed — wave 2 (was backlog #13) |
+| 14 | Venue accounts + rooms model | Retention and (later) billing attach to the venue, not the session; prerequisite for PMF-phase features. | not filed yet |
+| 15 | Close-the-loop notifications + public changelog | "You asked, we shipped" converts feedback into loyalty; completes the loop TICKET-11 + the framework intake loop open. | not filed yet |
+| 16 | Venue analytics view (free during early access) | Validates the top pro-feature candidate with real usage before we price it. | not filed yet |
+| 17 | Realtime upgrade evaluation (polling/SSE → ws) | Only if telemetry shows session sizes hurting; deliberate deferral per TICKET-0. | not filed yet |
+| 18 | TV mode: bigger type + fullscreen (TL follow-up) | The TV is the venue's recruitment poster; readable-across-the-bar type + chrome-free fullscreen. | TICKET-18 filed — wave 1 |
 
-Dependency notes: #6 blocks #7–#16 in practice (durable state). #10 depends on TICKET-3 (lib) and #9 (table identity). #11 depends on #6; #12 depends on #11; #15 depends on #12. #8 needs the YouTube Data API key via the W7 needs-user round.
+Dependency notes: #6 blocks #7, #9, #11, #12 (durable state). #8 blocks #9 (route restructure ordering). #10 depends on TICKET-3 (lib), #7 (admin page), #9 (table identity). #15 depends on the framework intake loop. #8 needs the YouTube Data API key and #6 needs Upstash provisioning via the W7 needs-user round.
 
 ## Open questions (for the Tech Lead)
 
