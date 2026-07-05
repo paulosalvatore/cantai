@@ -1,0 +1,2 @@
+{"v": "1", "ts": "2026-07-05T21:39:16Z", "actor": "product-owner", "product": "cantai", "ticket": "TICKET-5", "pr": null, "event": "worktree_created", "payload": {"branch": "ticket/5-roadmap", "path": "/Users/paulosalvatore/Documents/GitHub/cantai/.worktrees/ticket-5"}}
+{"v": "1", "ts": "2026-07-05T21:39:18Z", "actor": "dev", "product": "cantai", "ticket": "TICKET-5", "pr": null, "event": "work_committed", "payload": {"branch": "ticket/5-roadmap", "short_sha": "0df02ed", "message_slug": "TICKET-5: roadmap + rotation/feedback/monetization specs + groomed backl"}}
