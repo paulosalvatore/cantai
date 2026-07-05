@@ -4,7 +4,21 @@
 - **PR:** #1 — TICKET-5: roadmap + rotation/feedback/monetization specs
 - **Branch:** `ticket/5-roadmap`
 - **Date:** 2026-07-05
-- **Verdict:** REQUEST-CHANGES (2 blocking items)
+- **Verdict:** APPROVE (re-review — B1/B2 resolved; initial pass was REQUEST-CHANGES, see history below)
+
+## Re-review (2026-07-05, delta `197ff57..6f197bf`)
+
+Delta confined to `work/planning/rotation-modes-fair-queue.md` (+ event log). Verified each requested item against the updated spec:
+
+- **B1 RESOLVED:** `graceRequeue?: boolean` added to the entry schema with explicit store-set/clear semantics (set on grace re-queue, cleared on transition to `playing` — single-use by construction). Ordering step 3 consumes it: grace entries picked first within the group's round quota (overriding `submittedAt`), and among equal-credit groups the grace-holding group sorts first. No-shows section cross-references step 3; AC6 updated to test the flag lifecycle; purity preserved (grant/clear are store transitions, not engine behavior). Internally consistent with the rest of the spec.
+- **B2 RESOLVED:** `nowPlaying` specified — the entry currently in `playing` status or `null`; `order()` excludes it from the output and counts it as one consumed quota slot for its group; step 2's credit computation explicitly incorporates it. Coherent, no double-scheduling ambiguity remains.
+- **N1 addressed:** step 1 partition labels now per-mode explicit.
+- **N2 addressed:** one-per-person mode states table is optional and ignored for fairness.
+- **N3 addressed:** AC2 reworded to "tables taking turns round-by-round in credit-ascending order".
+
+No scope creep in the delta; markdown quality maintained. **APPROVE.**
+
+## Initial pass (superseded): REQUEST-CHANGES (2 blocking items)
 
 ## What was checked
 
@@ -52,4 +66,4 @@ The function signature is `order(entries, mode, nowPlaying) → orderedList`, bu
 | App Tester | N/A | Docs-only, no app behavior |
 | Security | N/A | Docs-only, no code/secrets |
 | CI | N/A | No required checks configured yet |
-| Reviewer (this) | REQUEST-CHANGES | 2 blocking items (B1, B2) |
+| Reviewer (this) | APPROVE | Re-review: B1/B2 resolved in `6f197bf`; nits addressed |
