@@ -232,3 +232,33 @@ The PR-body / dev-report delta table faithfully represents the divergences from 
 ### Verdict rationale
 
 REQUEST-CHANGES rather than "approve + follow-up ticket": F1 is not polish — it silently breaks the library's headline fairness guarantee in the exact scenario the README advertises, and it makes the `/tv` preview (`peekUpcoming`) disagree with actual playback (`advance`), which TICKET-1 builds directly on. It is also currently untested. The fix is small and localized (persist one counter). F2 should ride along since it touches the same option's persisted representation. Recommend fixing F1+F2 (with the F1 test above added and green) and a quick re-review of the delta; F3 is a NIT the TM may defer.
+
+---
+
+## Re-review — D-022 opus merge-counting pass, delta after fix commit `9728a5d` (2026-07-05)
+
+- **Verdict: APPROVE** (merge-counting).
+- Scope of re-review: commit `9728a5d` ("address opus review F1/F2/F3"), read locally in the worktree at origin tip `0b13c0c`. Note: the Dev's fix-summary PR comment is absent (API outage per coordinator); reviewed from code + tests + dev report directly.
+
+### Item-by-item confirmation
+
+- **F1 (BLOCKING) — FIXED, verified empirically.** `QueueState` gains a persisted `consecutiveListen: number` (init 0); `consume` increments it when a `listen` plays and resets it to 0 when a `sing` plays; `skip` leaves it untouched (correct — nothing played); `getEffectiveOrder` seeds `mergeListens` from the persisted value. Re-ran my exact first-pass reproduction (cap=1; `l1,l2,l3` listens then `s1`): PEEK `l1,s1,l2,l3` == ACTUAL advance-loop `l1,s1,l2,l3`, singer index 1 (was 3). My failing-test sketch is now in the suite verbatim, plus a full-drain `peekUpcoming(1)==advance` consistency loop and a counter-lifecycle test.
+- **F2 (MED) — FIXED, verified empirically.** Serialization contract changed to `maxConsecutiveListen: number | null` with **`null` = no cap** as canonical; `createQueue` normalizes `Infinity` → `null`; `mergeListens` guards `maxConsecutiveListen !== null` before the cap check (kills the `>= null` coercion). Verified: `Infinity` stored as `null`, JSON round-trip yields `null`, revived state deep-equals and orders identically (batch + iterative). Round-trip tests added, including a mid-run state with a non-zero persisted counter.
+- **F3 (NIT) — FIXED.** Duplicate key is now `uuid + videoId + mode`; test added (listen-for-X no longer blocks sing-for-X; same-mode dup still rejected); README documents the rule.
+
+### Additional adversarial probes on the new counter (all held)
+
+- **Skip interleaved with a forced singer at cap:** after a listen plays (run=1, cap=1) the order forces singer `sa`; skipping `sa` leaves run=1 and the order still forces the *next* singer `sb` — listens cannot exploit a no-show to extend the run. Correct.
+- **Mid-run JSON round-trip (cap=2, run=1):** revived state produces the identical effective order (`x2,sx,x3`). The persisted counter round-trips.
+- **Design note reviewed:** the counter increments on a listen play even with no singer waiting, so a singer joining mid-listen-run is favored immediately. The dev report documents this deliberately singer-favoring edge; acceptable semantics, honestly disclosed.
+
+### Suite / typecheck / CI / report currency
+
+- `node --test`: **47/47 pass** (was 40; +7 covering F1/F2/F3), my own run.
+- `npx tsc --noEmit`: clean, my own run.
+- `gh pr checks 3`: Vercel + Vercel Preview Comments both `pass`, nothing pending — S1 satisfied (no required test CI exists for this package; deferred to app-integration per ticket, as recorded in the first pass).
+- Dev report updated in the same commit: current status line (47/47), a faithful "Opus review fixes" section, README updated (null/no-cap semantics, peek==play guarantee, per-mode duplicate rule). TICKET-F23 satisfied.
+
+### Verdict
+
+**APPROVE — merge-counting.** All three findings resolved with the fixes I recommended, each locked in by tests (including my exact failing case), independently re-verified by my own reproduction runs. Gate-waiver call (App Tester / Cyber Security N/A-by-content) unchanged and still sound — the fix commit adds no I/O or attack surface. Outstanding non-blockers carry over unchanged: spec-delta alignment with the updated planning doc (`graceRequeue`/`nowPlaying`) is a filed follow-up; package `exports` pointing at `.ts` source is a known POC choice. TM may merge.
