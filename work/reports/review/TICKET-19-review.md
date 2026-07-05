@@ -1,11 +1,27 @@
 # Reviewer Report — TICKET-19 (PMF wave ticket batch)
 
 - **PR:** #5 `ticket/19-pmf-wave-tickets`
-- **Reviewer:** Reviewer agent (Sonnet first-pass; docs-only — opus judgment pass not required per D-022 TM skip authority; recorded here)
+- **Reviewer:** Reviewer agent (docs-only — opus judgment pass skippable per D-022 TM skip authority; recorded here)
 - **Date:** 2026-07-05
-- **Verdict:** REQUEST-CHANGES (1 blocking item; 2 nits)
+- **Verdict:** APPROVE (re-review — first pass was REQUEST-CHANGES; all items resolved in commit `e31ce40`)
 
 ---
+
+## Re-review (delta after REQUEST-CHANGES)
+
+Delta reviewed locally: `git diff 204b996..origin/ticket/19-pmf-wave-tickets -- work/tickets/` (commit `e31ce40` + event-log auto-commit `5f17292`). CI re-verified green on the new tip (Vercel: pass).
+
+| Item | Status | Verification |
+|---|---|---|
+| **B1** — TICKET-9 missing TICKET-7 dep | **RESOLVED** | TICKET-9 Depends-on now lists `TICKET-7 (lib/host-auth.ts must exist — this ticket swaps its lookup to per-room host codes)`; wave header updated to "after TICKET-6, TICKET-7 AND TICKET-8 merge"; TICKET-19 wave-2 gate column adds "#9 additionally waits for #7 (`lib/host-auth.ts` must exist)"; edge list adds `7 → 9 (lib/host-auth.ts)` |
+| **N1** — `.env.example` sequential-merge note | **RESOLVED** | New rationale item 6 in TICKET-19: #6 owns the file; #7/#8/#11 each append one line; later-merger rebases and re-appends, never reformats or reorders. One batch-level rule covering both waves — acceptable (arguably better than scattering per-ticket notes) |
+| **N2** — TICKET-12 implicit #7 dep | **RESOLVED** | TICKET-12 Depends-on now explicit: TICKET-7 for `app/api/host/**` instrumentation specifically, with the correct nuance that core telemetry (lib, store, beacon, queue/search events) is buildable before #7 and host events land at the final rebase; edge list adds `7 → 12 (host-route instrumentation only)` |
+
+**Coherence re-check of the amended graph:** edges now 6→{7,9,11,12}; 7→9; 8→9; 7→12 (partial, host routes only); {3,7,9}→10; 18→(7's `/tv` read). No cycles. Within wave 2 the ordering is now explicit: #7 free to start at the wave gate; #9 starts after #7+#8 merge; #12 merges last. The wave-2 launch gate ("TICKET-6 merged, all four") remains coherent — #12's pre-#7 buildability is correctly scoped and #9's later start is stated in the gate column, not hidden. Wave-3 gate (TICKET-7 + TICKET-9 + PR #3 merged) unchanged and still correct. No new inconsistency introduced by the fixes.
+
+---
+
+## First-pass record (2026-07-05, verdict REQUEST-CHANGES — superseded above)
 
 ## Preconditions
 
