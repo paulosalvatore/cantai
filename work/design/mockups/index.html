@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>cantai — mockups TICKET-4</title>
+<link rel="stylesheet" href="cantai.css">
+<style>
+  .hub { max-width: 960px; margin: 0 auto; padding: 48px 24px; }
+  .hub h1 { font-size: 44px; margin-bottom: 4px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; margin-top: 32px; }
+  .grid .card { display: block; transition: border-color .12s; }
+  .grid .card:hover { border-color: var(--c-pink); }
+  .grid .card .title { margin-bottom: 6px; }
+  .flow { margin-top: 40px; }
+  .flow ol { margin: 12px 0 0 20px; line-height: 2; color: var(--c-text-muted); }
+</style>
+</head>
+<body>
+<div class="hub">
+  <h1><span class="wordmark">cantai</span></h1>
+  <p class="muted">TICKET-4 — static clickable mockups · dark bar theme · pt-BR</p>
+
+  <div class="grid">
+    <a class="card" href="patron-01-join.html">
+      <div class="title">1 · Entrada do cliente</div>
+      <p class="meta">Apelido, mesa opcional, modo (cantar / só curtir). Mobile 390px.</p>
+    </a>
+    <a class="card" href="patron-02-pick-song.html">
+      <div class="title">2 · Escolher música</div>
+      <p class="meta">Busca YouTube + colar link, resultado selecionado, confirmar. Mobile.</p>
+    </a>
+    <a class="card" href="patron-03-queue.html">
+      <div class="title">3 · Fila (visão do cliente)</div>
+      <p class="meta">Tocando agora, sua posição destacada, fila completa. Mobile.</p>
+    </a>
+    <a class="card" href="tv.html">
+      <div class="title">4 · Tela /tv</div>
+      <p class="meta">Now playing gigante + a seguir + QR de entrada. 1920×1080.</p>
+    </a>
+    <a class="card" href="admin.html">
+      <div class="title">5 · Admin do bar</div>
+      <p class="meta">Troca de modo (completo / 2 por mesa / 1 por pessoa) + controles. Desktop/tablet.</p>
+    </a>
+  </div>
+
+  <div class="flow">
+    <div class="label">Fluxo clicável</div>
+    <ol>
+      <li>Entrada → botão "Bora cantar!" leva à escolha de música.</li>
+      <li>Escolher música → "Entrar na fila" leva à fila com a sua entrada destacada.</li>
+      <li>Fila → "+ Outra música" volta para a busca.</li>
+      <li>/tv e Admin são telas independentes (venue).</li>
+    </ol>
+  </div>
+</div>
+</body>
+</html>
