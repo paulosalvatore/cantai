@@ -22,3 +22,10 @@
 - PR #4 (TICKET-1 app) delivered (25 unit + 1 e2e + build green); App Tester gate running.
 - TICKET-2 UNBLOCKED: TL connected the Vercel project (vercel.com/paulosalvatores-projects/cantai) and said go — deploy verification runs after PR #4 merges (Vercel GitHub integration auto-builds main).
 - Recurring friction: work/events/2026-07.jsonl add/add conflicts on every parallel PR — union resolution works; class-level fix candidate filed mentally for framework (merge=union gitattributes for *.jsonl) — to be filed via inbox.
+
+## 2026-07-05 — PMF directive (prompt 005)
+
+- TL: "Full horse to develop full features to release product to market fit." Recorded as the operating mode: aggressive parallel feature waves toward PMF, autonomous gate chains, TM merges (D-043).
+- PO (fable) dispatched to convert backlog #6-#12 + TICKET-18 into buildable parallel tickets with file-ownership boundaries and wave grouping (branch ticket/19-pmf-wave-tickets), so the dev wave launches the moment PR #4 merges.
+- Wave-1 dev fan-out (opus devs) planned immediately post-PR#4-merge; TICKET-2 (Vercel verify) runs on the merge itself.
+- Standing needs-user: YouTube Data API key (blocks TICKET-8 search only).
