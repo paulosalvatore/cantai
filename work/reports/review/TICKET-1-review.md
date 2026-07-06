@@ -251,3 +251,49 @@ The skeleton itself is the right foundation, is cleanly built, and its gates are
 3. **(TM merge-time)** Resolve the `work/events/2026-07.jsonl` append conflict (union) — mechanical, expected.
 
 Notes 3–6 above (double-advance, open advance endpoint, localStorage-disabled NIT) are acceptable-and-documented for an early-access prototype — recorded, not blocking. Re-review will confirm items 1–2 and the green preview deploy, then flip to APPROVE.
+
+---
+
+## Opus Delta Re-Review — tip `3c80c27` (2026-07-05, same opus Reviewer)
+
+Delta reviewed: `2e2c816..origin/ticket/1-walking-skeleton` (commits `22f04bb` fix, `3735b74` merge-from-main, `e05f064` tsconfig, `3ad8b44` dev-report; code delta outside `work/` = `vercel.json` +3, `README.md`/`app/page.tsx`/`lib/store.ts` wording, `tsconfig.json` +1 exclude, plus `packages/rotation-engine/**` arriving via the main merge).
+
+### Requested items — all verified fixed
+
+| Item | Verified | Evidence |
+|---|---|---|
+| 1. Vercel deploy green | ✅ | `vercel.json` = `{"framework":"nextjs"}` on the branch; `gh pr checks 4`: **Vercel → pass, "Deployment has completed"** (was FAILURE / missing-public-dir). |
+| 2. Honest divergence wording | ✅ | Patron footer (`app/page.tsx:311`): "Early-access prototype — queues may reset or differ between devices until persistent storage ships". `lib/store.ts` JSDoc now states per-lambda-instance copies, diverging queues, silent drops on recycle. README limitation updated in `22f04bb`. Accurate and user-honest. |
+| 3. Conflict resolved | ✅ | Dev merged `origin/main` (`3735b74`), union on `work/events/2026-07.jsonl`; PR now **MERGEABLE**. Bare-git merge was used because the sanctioned script cannot conclude a merge — deliberate, documented in the dev report; acceptable as the recorded exception. |
+
+### New change assessed — tsconfig `"packages"` exclude (`e05f064`): SOUND
+
+The main merge brought `packages/rotation-engine/**` (own `package.json` + own `tsconfig.json`) into the tree; the app's root tsconfig `include: **/*.ts` then swept the package's sources into Next's type-check and broke the build (`allowImportingTsExtensions` mismatch). Excluding `packages` from the **app** tsconfig is the correct boundary — the rotation engine is a standalone package with its own compile/test config, not part of the Next.js app build, and later tickets consume it as a package, not via the app include glob. Verified empirically: `next build` clean on the tip with the package present.
+
+### Reviewer-run verification on exact tip `3c80c27`
+
+```
+npm test          → 3 suites, 39/39 pass
+rm -rf .next && npm run build → ✓ Compiled successfully (next 15.5.20), 7 routes, clean
+npm run test:e2e  → 1/1 pass [chromium] patron submits a song and it appears in the queue
+gh pr checks 4    → Vercel: pass ("Deployment has completed"); build-and-test: fail (see below)
+```
+
+### The CI question (S1) — ruling: recorded exception, does NOT block merge
+
+New fact: the main merge unblocked GitHub Actions (a CONFLICTING PR never builds a merge ref, so CI had silently never run — itself a lesson worth keeping). The first-ever run (`28759906430`) now dies in 3s with **zero steps executed**: annotation verbatim — *"The job was not started because recent account payments have failed or your spending limit needs to be increased."* Verified firsthand via `gh run view` + jobs API (`steps: []`).
+
+Ruling and reasoning:
+
+1. **S1's letter:** S1 forbids approving on a *pending* required check and treats a *failing* required check as REQUEST-CHANGES. Neither applies cleanly: this repo has **no required checks** (no branch protection — private repo, GitHub 403 "Upgrade to Pro", recorded in the sonnet pass), and the check is neither pending nor a test failure — the runner never started.
+2. **S1's intent:** the rule exists so a Reviewer never approves on *unverified claims* of green (the historical incident: approval while `test` was pending, later went red). Here the signal S1 protects is present in a stronger form than CI would provide: **I ran the full suite myself on the exact merge-candidate SHA** (39/39 unit + 1/1 e2e + clean build), independently reproducing the Dev's and sonnet Reviewer's runs. The billing failure carries **zero information about the code** — it would paint every PR on this account red, including an empty diff.
+3. **Fail-closed proportionality:** failing closed on an account-billing outage blocks every merge on every repo of the account indefinitely, on a signal no code change can turn green. That converts a needs-user infrastructure item into a fleet-wide deadlock — not what S1 buys us.
+
+**Exception conditions (recorded, binding):**
+- The billing item is escalated `[needs-user]` to the TL (already posted) — account-level, not repo-fixable.
+- Once billing is restored, the TM must verify the **first post-merge CI run on `main` goes green** (the workflow has never executed end-to-end on GitHub runners; my local runs de-risk it, but the first real run is the confirmation). Any failure there is a fast-follow fix, not a rollback.
+- This exception covers **this billing failure only** — it does not generalize to red CI of any other cause.
+
+### Verdict
+
+**APPROVE** (opus, merge-counting, D-022). All three REQUEST-CHANGES items independently verified fixed; Vercel preview deploy GREEN ("Deployment has completed"); PR MERGEABLE; build + 39/39 unit + 1/1 e2e reviewer-run green on exact tip `3c80c27`; tsconfig packages-exclude sound; CI billing failure ruled a recorded repo-external exception with the conditions above. TM may merge and deploy.
