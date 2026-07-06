@@ -3,6 +3,7 @@
 - **Ticket:** TICKET-11 — feedback widget + API + durable store (product side)
 - **Branch:** `ticket/11-feedback-widget` · **Worktree:** `.worktrees/ticket-11` · **Port:** 3011
 - **Author:** Dev agent · **Date:** 2026-07-05
+- **APPROVED-BY:** auto-approved (no plan-gate escalation) — validated downstream by gates + TL merge of PR #11
 
 ## Approach
 
