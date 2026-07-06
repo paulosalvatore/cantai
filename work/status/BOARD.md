@@ -15,6 +15,7 @@ _Last updated: 2026-07-06 (11 PRs merged; repo PUBLIC, CI restored+green; wave-2
 
 - Upstash-backed search cache + rate buckets (PR #8 opus rec — biggest quota lever; also makes rate limit cross-instance).
 - Advance-guard for the double-advance race (ENDED vs skip; pre-existing, LOW).
+- **Deflake TV e2e on CI (MED, from retroactive CI audit 2026-07-06)** — ticket/8 branch snapshot failed 2× on DIFFERENT tv.spec assertions (hero text timeout, then a seeded nickname not visible) while the same merged code passed 3+ main-state runs. Root-cause class: next-dev route compilation resets the memory-store singleton mid-e2e (TICKET-7 dev reproduced; its warmUp() workaround isn't in tv.spec) + 5s waits on slow runners. Fix: shared memory-driver e2e helper (warmUp + seed-after-compile) + bounded longer waits on /tv assertions.
 - setQueue if-changed diff on /tv (render churn, LOW).
 - POWERED_BY_FOOTER doc nit: env change needs redeploy on Vercel.
 - Design-token consolidation (tv CSS module duplicates TICKET-4 tokens deliberately).
