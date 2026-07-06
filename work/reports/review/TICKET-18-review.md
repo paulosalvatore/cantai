@@ -202,3 +202,50 @@ None.
 ## Verdict
 
 **[reviewer] APPROVE** — TICKET-18 implements all 6 ACs correctly and completely, the test suite is meaningful and passes, the architecture is idiomatic, scope discipline is clean, the security waiver is sound, and the evidence trail is complete with committed screenshots. The 4 nits are non-blocking. Ready for Tech Manager merge after this gate closes.
+
+---
+
+## D-022 opus second pass (merge-counting)
+
+Second-pass judgment layer on the strongest model, focused on the risk the bar cares about: **this screen runs unattended on a TV for 6+ hours a night.** I re-derived the full diff locally (`6aafe485..origin/ticket/18-tv-fullscreen`, 5 commits, zero API diff reads), re-ran the tests myself, and audited the six specific risk axes below. I concur with the first-pass APPROVE and add the following.
+
+### 1. Long-running reliability — SOUND (the headline finding)
+
+Audited every timer/listener/wake-lock/poll for leaks or drift over a night:
+
+- **Queue poll** (`setInterval(fetchQueue, 3000)`): one interval, `fetchQueue` is a stable `useCallback([])`, cleared on unmount. No churn. ✓
+- **YT player effect** (`[ytReady, queue, advance]`): re-runs every poll because `setQueue` hands a fresh array reference every 3s — but it is **idempotent**. The `YT.Player` is created exactly once (guarded by `playerRef.current`), and track changes go through `loadVideoById` on that same instance. The `onStateChange`/`onReady` handlers are attached at creation and are **never re-attached** → no handler accumulation across track changes (the classic leak this axis worried about does not occur). ✓
+- **Wake lock**: acquired on mount, re-acquired on `visibilitychange→visible`, released + listener-removed on unmount. Correct handling of the browser's auto-release-on-hidden behavior. One *theoretical* edge: two consecutive `visible` events without an intervening `hidden` would overwrite `sentinel` without releasing the prior one — but the browser only fires `visibilitychange` on actual change and auto-releases on `hidden`, so a dangling sentinel is not reachable in practice. Negligible over a night. (optional)
+- **Chrome auto-hide timer**: `pokeChrome` clears the prior timeout before setting a new one → **exactly one** outstanding timer at all times even under a flood of `mousemove`; cleared on unmount. ✓
+- **YT API `<script>`**: injected once, intentionally left mounted. ✓
+
+**No unbounded growth on any axis.** The only inefficiency: `setQueue` fires every 3s even when the payload is unchanged, forcing a re-render + effect re-run every poll (~7200 over 6h). Bounded, not a leak, but a cheap `if-changed` diff before `setState` would eliminate the churn. Non-blocking (optional).
+
+### 2. Double-advance race (App Tester's TICKET-1 flag) — UNCHANGED, acceptable
+
+The `advance()` callback and the `onStateChange(ENDED)` handler are **byte-identical to the base**; the skip button still calls `advance()`. This refactor neither introduced nor fixed the race (ENDED + a near-simultaneous manual skip both POSTing `/api/queue/advance` could skip one song). It is now *marginally less likely in practice*: skip lives inside auto-hiding chrome, so triggering it requires a deliberate poke→click rather than an always-present button — less prone to coincide with a natural track end. Pre-existing, low severity, not introduced here → **not a blocker.** Recommend a follow-up ticket for an advance guard/token (e.g. debounce or compare current videoId before advancing). (optional / follow-up)
+
+### 3. `force-dynamic` + Vercel caching — mechanics VERIFIED, one doc-precision nit
+
+The claim "read at request time so the footer can flip without a rebuild" is mechanically correct where it matters for *reliability*: `export const dynamic = "force-dynamic"` disables the Next.js full-route cache, so **no edge/CDN layer can serve a stale footer state** — every request re-renders on the function. And `process.env.POWERED_BY_FOOTER` (a non-`NEXT_PUBLIC_` var) is read at runtime, not inlined at build. Both halves of the concern check out. Precision nit: on Vercel, changing the env-var *value* still requires a **redeploy** to propagate to the running function's runtime env — "without a rebuild" is true (no static regen, no bundle rebuild) but a dashboard toggle alone will not hot-swap it live. Worth a one-line clarification in `config.ts`'s comment. (optional)
+
+### 4. Fullscreen UX / user-gesture contract — SOUND
+
+The `Tela cheia` button calls `requestAppFullscreen` from a genuine `onClick` → valid user activation, so `requestFullscreen()` won't be rejected. The `F` key path runs from a `keydown` handler, which also carries transient user activation → also valid. The `F` handler is a global `window` `keydown`, but `/tv` renders **no text inputs**, so the "typing f in a field" hazard is not reachable on this route. The stub-tested contract (affordance calls the API once, hides on `fullscreenchange`, re-requests after Esc) matches how real Chromium behaves for gesture-initiated `requestFullscreen`. ✓
+
+### 5. Rebase surface vs current `main` — CLEAN
+
+TICKET-6 (async store + Redis) merged to `main` after this branched. This branch touches **only** `app/tv/**`, `components/tv/**`, tests, and `playwright.config.ts` — it does **not** touch `lib/store.ts` or `app/api/queue/**` (TICKET-6's files) → no file-level conflict. TICKET-6 preserved the HTTP contract (`GET /api/queue → { items, nowPlaying }`), which is all `/tv` consumes over `fetch`. Verified `origin/main` still re-exports `type QueueEntry` from `@/lib/store` (via `./store/types`), so this branch's `import type { QueueEntry }` resolves post-merge. No semantic conflict. ✓
+
+### 6. Tests verified independently (this session)
+
+- `__tests__/tv-config.test.ts` — **3/3 pass** (footer flag resolution).
+- `e2e/tv.spec.ts` — **4/4 pass** (idle poster, playing scale/rail/28px floor, fullscreen affordance, chrome auto-hide).
+- Min rendered font 1.5vw = 28.8px ≥ 28px floor (AC1) confirmed in CSS and asserted by e2e.
+- CI: both required Vercel checks green; no separate test workflow (CI-green = Vercel build, which runs the real `next build`/lint).
+
+### Opus verdict
+
+**[reviewer] APPROVE (D-022 opus, merge-counting)** — Reliability, the one axis that could bite an all-night unattended TV, is sound: no timer/listener/wake-lock/player-handler leaks, bounded re-render churn, correct wake-lock re-acquisition. The double-advance race is pre-existing and unchanged (acceptable, follow-up recommended), the `force-dynamic` caching claim is mechanically correct, fullscreen is wired to real user gestures, and the branch rebases cleanly onto post-TICKET-6 `main`. All nits are non-blocking. **Cleared for Tech Manager merge.**
+
+Recommended follow-ups (both optional, neither gates this PR): (a) advance-guard ticket for the ENDED+skip race; (b) `setQueue` if-changed diff to stop 3s re-render churn; plus the one-line `config.ts` comment precision on Vercel env redeploy.
