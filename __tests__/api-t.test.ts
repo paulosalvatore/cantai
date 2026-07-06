@@ -54,7 +54,7 @@ describe("POST /api/t — happy path", () => {
   it("sanitizes props to a small scalar bag", async () => {
     const res = await POST(
       beacon({
-        event: "song_played",
+        event: "patron_joined",
         roomId: "room-a",
         props: { position: 3, freeText: "x".repeat(400), nested: { a: 1 } },
       }),
@@ -69,7 +69,7 @@ describe("POST /api/t — happy path", () => {
 
 describe("POST /api/t — validation", () => {
   it("rejects server-observable event names (data-poisoning guard)", async () => {
-    for (const event of ["song_queued", "host_action", "search_performed", "submit_rejected"]) {
+    for (const event of ["song_queued", "host_action", "search_performed", "submit_rejected", "song_played"]) {
       expect((await POST(beacon({ event, roomId: "r" }))).status).toBe(400);
     }
     expect(await telemetryStore.listDays()).toEqual([]);

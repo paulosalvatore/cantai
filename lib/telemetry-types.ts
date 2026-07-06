@@ -39,12 +39,13 @@ export type TelemetryEventName = (typeof TELEMETRY_EVENTS)[number];
 /**
  * The subset of events the public `/api/t` beacon accepts from clients.
  * Server-observable moments (queue/search/host actions) are emitted from API
- * routes only — a client claiming them would poison the data. Client-only
- * moments (join without a server call, TV playback start) may beacon.
+ * routes only — a client claiming them would poison the data. `song_played`
+ * is deliberately NOT here (review C1): it has exactly ONE source, the
+ * server-side `/api/queue/advance` instrumentation — a beacon duplicate
+ * would double-count plays.
  */
 export const CLIENT_ALLOWED_EVENTS: readonly TelemetryEventName[] = [
   "patron_joined",
-  "song_played",
 ];
 
 /** Small scalar-only props bag (post-sanitization). */

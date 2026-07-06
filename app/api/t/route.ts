@@ -2,8 +2,9 @@
  * /api/t (TICKET-12) — the single tiny telemetry beacon.
  *
  * POST only, public, anonymous. Exists for CLIENT-ONLY moments the server
- * can't observe (patron join without a server call, TV playback start) —
- * everything server-observable is emitted directly from API routes instead.
+ * can't observe (patron join without a server call) — everything
+ * server-observable (incl. song_played, review C1) is emitted directly from
+ * API routes instead.
  *
  *   - Accepts ONLY the CLIENT_ALLOWED_EVENTS subset — a client claiming
  *     server-observable events (song_queued, host_action, …) would poison the

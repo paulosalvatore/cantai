@@ -80,3 +80,28 @@ build-and-test	pass	1m33s	https://github.com/paulosalvatore/cantai/actions/runs/
 ```
 
 All required checks terminal-green. Earlier conflicting-PR state (append-only `work/events/2026-07.jsonl` vs main) resolved via merge `f152db8` (events = union; `.env.example` = main first + telemetry section appended; branch files unchanged).
+
+## Final rebase step (2026-07-06, post-TICKET-9 merge)
+
+Merged `origin/main` (TICKET-9 rooms/QR in): events jsonl = union (111 lines), `.env.example` = main first + telemetry section appended last (merge `e8ee22c`).
+
+**Instrumentation landed (additive `void track(...)` one-liners, never awaited — fail-open):**
+
+| Event | Route (current, post-#9) | Notes |
+|---|---|---|
+| `song_queued` | `app/api/queue/route.ts` POST success | real `roomId`, `uuid`, `props {kind: search/paste, mode}` |
+| `submit_rejected` | `app/api/queue/route.ts` cap branch (429) | `props {reason: cap}` |
+| `song_played` | `app/api/queue/advance/route.ts` (promoted entry only) | **C1: the ONE source** — removed from `CLIENT_ALLOWED_EVENTS`; beacon now rejects it (test added) |
+| `song_skipped` + `host_action{skip}` | `app/api/host/skip/route.ts` after auth+advance | |
+| `host_action{pause/resume}` | `app/api/host/pause/route.ts` | action from the `paused` boolean |
+| `host_action{remove}` | `app/api/host/remove/route.ts` | only when `removed` true |
+| `host_action{reorder}` | `app/api/host/reorder/route.ts` | only when `moved` true |
+| `search_performed` | `app/api/search/route.ts` (cached + fresh success) | `props {results: n}`; roomId from optional `?room=` param |
+| `room_created` | `app/api/rooms/route.ts` POST success | real created room id |
+| `patron_joined` | `/api/t` beacon only | no server-side join surface exists post-#9 (join = client page landing); client beacon wiring is a follow-up outside this ticket's ownership (must-not-touch UI) |
+
+**Fail-open incident caught by tests:** first cut of the search instrumentation used `req.nextUrl` — the search unit tests pass a plain `Request`, so the line THREW inside the route's try and degraded the response (exactly the failure class the fail-open contract forbids). Fixed to the route's own plain-Request-safe `params`; `__tests__/api-search.test.ts` green again. New `telemetry-instrumentation.test.ts` also asserts a dead telemetry store never changes a route's response.
+
+**Known undercount (documented):** `song_played` counts queue-head promotions via `/api/queue/advance`; the first song of a session (played without an advance) is not counted. Acceptable proxy for the rollup; noted for #16.
+
+Verification: `npm test` — **20 suites, 292 tests passed** (+49 vs pre-rebase incl. `telemetry-instrumentation.test.ts` and main's new #9 suites). `PORT=3012 npm run test:e2e` — **17 passed** (main gained 3 specs). `npm run build` — ✓. Server stopped after.
