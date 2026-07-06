@@ -162,3 +162,58 @@ Coverage not dropped — expanded (now runs against both drivers, adds room scop
 ## Verdict
 
 **[reviewer] APPROVE** — Interface is frozen exactly per spec (all 9 ops, all TICKET-7/10 reservations, room-scoped). Conformance suite genuinely runs identical assertions against both drivers. Security LOW #1 folded in (server-only guard verified in build). All input validation preserved in async conversion. Deleted test file's coverage moved and expanded, not dropped. Build and tests green. Two non-blocking nits noted above.
+
+---
+
+# Opus judgment pass (D-022 second tier) — 2026-07-06
+
+Reviewer agent, opus tier. This is the merge-counting pass. I re-verified tests/build myself on the exact PR head `83ff8c5`, then hunted the seams the sonnet/mechanical passes structurally cannot reach: the fake-vs-real Redis contract, serverless concurrency, driver failure modes, and whether the frozen interface actually carries wave-2. Verdict: **APPROVE**, with mechanical merge-prep conditions for the TM (not code changes) plus one out-of-scope follow-up ticket.
+
+## 1. Fake-vs-real serialization seam — PROBED AGAINST THE REAL CLIENT, holds
+
+The headline risk: does `UpstashStore` behave against real `@upstash/redis` the way `FakeRedis` idealizes? I read the actual installed client (`node_modules/@upstash/redis@1.38.0`, `nodejs.js`) rather than trusting the fake. Findings against the real contract:
+
+- **Write path** (`defaultSerializer`, nodejs.js:560): `string | number | boolean` pass through untouched; every other type → `JSON.stringify(c)`. So `rpush(key, entry)` stores a JSON string of the `QueueEntry`; `set(pausedKey, "1")` stores the bare string `"1"`. The store passes **raw objects/strings, never pre-stringified** → there is NO double-encode. Confirmed by reading every call site in `upstash.ts`.
+- **Read path** (`parseResponse` → `parseRecursive`, nodejs.js:60-78): default `automaticDeserialization` is ON. Arrays (LRANGE) map each element through `JSON.parse`; single values (LINDEX/GET) `JSON.parse` directly. So `lrange`/`lindex` return **parsed `QueueEntry` objects** — matches what the store expects.
+- **The one real divergence** is `GET` on the paused flag: real client does `JSON.parse("1")` → **number `1`**, NOT string `"1"` (the `parseRecursive` numeric-guard at nodejs.js:67 keeps it as `1` because `(1).toString() === "1"`). `FakeRedis.get` returns the string `"1"`. The store's `isPaused` handles BOTH: `v === "1" || v === 1 || v === true`. This is the exact spot a naive impl would ship broken against prod while green against the fake — the dev anticipated it correctly. Good.
+- **QueueEntry round-trip is JSON-safe**: all fields are string / ISO-string / boolean. Optional `undefined` fields (`title`/`table`/`graceRequeue`) are dropped by `JSON.stringify` on write; reading them still yields `undefined` — no consumer breakage. The FakeRedis stores object references (skipping the serialize round-trip), which is a fidelity gap in the abstract but behaviorally identical here because every field is a JSON-safe primitive.
+
+**Verdict on the seam: sound.** Sonnet's NIT #1 (FakeRedis lacks a JSON round-trip) is valid *as hardening* — I'd go further: having `FakeRedis` do `JSON.parse(JSON.stringify(v))` on store AND coerce the paused `"1"`→`1` would lock the `isPaused` number-coercion in as a regression guard. Still non-blocking; I verified the real contract by hand.
+
+## 2. Serverless concurrency — real vs theoretical, split cleanly
+
+- **`addEntry` (RPUSH):** atomic append, no anomaly. The `llen`-then-`rpush` QUEUE_MAX check is a genuine race (N concurrent adds at len 199 all pass → soft over-cap), but `QUEUE_MAX=200` is a DoS soft-guard, not an invariant; a few entries over on a thundering herd is harmless for a bar queue. Acknowledged in-code + security + TICKET-9. **Accept.**
+- **`advance` (LPOP + separate LINDEX):** not atomic across the two round-trips, BUT `LPOP` itself is atomic so no entry is ever lost or duplicated. The read-back races are benign: concurrent advances just skip N heads (semantically "skipped twice" on a host double-click); an `addEntry` interleaving in the LPOP→LINDEX gap yields a correct head either way. **Accept.**
+- **`removeEntry` / `reorder` (read-modify-write: `lrange` → `del` → `rpush`):** THIS is the one real lost-update window — an `addEntry` or `advance` interleaving a host reorder gets clobbered by the wholesale rewrite from a stale snapshot (patron's just-submitted song vanishes, or a played song reappears). Real. Two mitigants make it proportionate to defer: (a) these ops have **no caller until TICKET-7** (host controls aren't wired — I confirmed the routes only call `getQueue`/`nowPlaying`/`addEntry`/`advance`), so the window is **unreachable on the live path at this merge**; (b) it's documented in-code and scoped to TICKET-9 for an atomic (Lua/pipeline/WATCH) fix. **Accept, flagged for TICKET-9.**
+
+## 3. Driver-selection failure modes — fails loud, no per-request cost
+
+- **`store` is a module-load singleton** (`export const store = createStore()` at `lib/store.ts:39`), evaluated **once per lambda cold start**. There are NO per-request driver checks — item (3)'s cold-start concern doesn't apply; the design is right.
+- **Creds missing but upstash selected:** `createUpstashStore()` throws at module import → the route module fails to load → loud 500 on every request. No silent fallback to a divergent driver. Good.
+- **Creds present but wrong/unreachable at runtime:** `new Redis({url, token})` is lazy (no validation at construct), so the first command rejects → route `await` rejects → Next.js 500. Fails loud per-request; worst case a request hangs up to the fetch/Vercel function timeout (~10s default) since no explicit `retry`/timeout is configured on the client. **Optional hardening:** pass a retry/timeout to `new Redis()`. Prototype-acceptable as-is.
+
+## 4. Frozen-interface bet for TICKET-10 (rotation) — holds
+
+Can rotation-mode be built over these 9 ops without a full-queue R-M-W per advance? Grace-requeue (move the played head back into the queue instead of dropping it) is expressible as `nowPlaying`/`lindex` (peek) + `advance`/`lpop` (remove) + `addEntry`/`rpush` (re-queue to back) — no full-queue read for a back-append. Precise-position reinsertion would use `reorder` (R-M-W, already shipped). Rotation *display fairness ordering* (interleave by patron) is a read-side computation over `getQueue` — needs no new store op. The `graceRequeue` field is already reserved on `QueueEntry`. So TICKET-10 never reopens `types.ts`. **The freeze is a good bet.** Caveat: an atomic `lpop`-then-`rpush` "pop-and-requeue" primitive is absent, so a naive TICKET-10 requeue inherits the same lost-update class as the host ops — same TICKET-9 atomicity fix covers it.
+
+## 5. Tests / build — re-verified on head 83ff8c5
+
+- `npm test` → **78/78 pass** (3 suites: youtube, api-queue, store). Own run.
+- `npm run build` → **compiled clean, 7/7 static pages**, type-check green, routes as expected. Own run.
+
+## Out-of-scope / merge-prep findings (do NOT block the code)
+
+- **A. CI GitHub Action is broken repo-wide (file a follow-up ticket).** `ci.yml`'s `build-and-test` job fails in ~4-5s with **zero steps executed** across *every* ticket (1, 2, 3, 19) — the signature of exhausted GitHub Actions minutes / unavailable runner on this private repo. For PR #7 it produced **no check-run at all**; the only reporting check is **Vercel** (a real preview build + deploy) = SUCCESS. Nothing is GitHub-enforced-required (branch protection is unavailable — private repo without Pro). This is **pre-existing and not introduced by TICKET-6**, so it does not block this PR (I verified test + build green locally on the head + Vercel green — S1 spirit satisfied). But for a "production-reliability core," shipping while the automated test-CI gate is dark is a real reliability gap → **file a follow-up ticket to restore ci.yml** (top up Actions minutes or move CI to a working runner).
+- **B. Branch is `DIRTY` (mechanical merge-prep for the TM).** `origin/ticket/6-persistence` is 9 commits behind `origin/main`; `git merge-tree` shows conflicts in **only** `README.md` (TICKET-2 deploy section vs TICKET-6 persistence section — docs) and `work/events/2026-07.jsonl` (append-only event log — always conflicts across parallel branches). **Zero code-file conflicts** — `lib/`, `app/`, tests, `package.json` all merge clean. Resolution is mechanical: rebase/merge main keeping both README sections + union the event log, then merge. Does not change reviewed code semantics.
+
+## Nits (optional, non-blocking) — carried + added
+
+1. (sonnet) FakeRedis JSON round-trip — I'd extend it to also coerce paused `"1"`→`1` to lock in the `isPaused` behavior as a regression guard.
+2. (sonnet) `lib/store/memory.ts` lacks `server-only` — belt-and-suspenders; `lib/store.ts` (the enforced import point) already carries it and MemoryStore reads no credentials.
+3. (new) Consider `retry`/timeout on `new Redis()` so a misconfigured/unreachable Upstash 500s fast instead of hanging to the function timeout.
+
+## Opus verdict
+
+**[reviewer] APPROVE (D-022 merge-counting).** The fake-vs-real Redis seam I was tasked to adversarially probe holds against the real `@upstash/redis@1.38.0` contract — no double-encode, and the one genuine divergence (paused `GET` coercing to number) is explicitly handled. Hot-path concurrency (RPUSH/LPOP) is safe; the R-M-W host ops carry a real lost-update window but it is dormant until TICKET-7 and correctly scoped to TICKET-9. Driver selection fails loud with no per-request cost. The 9-op interface freeze genuinely carries TICKET-7/9/10. Tests 78/78 + build green on the exact head.
+
+**TM merge conditions (mechanical, not code):** (1) resolve the `README.md` + `work/events/*.jsonl` conflict via rebase/merge-main before merging — zero code conflicts, so the reviewed semantics are unaffected; (2) file a follow-up ticket to restore the broken `ci.yml` Action (repo-wide, pre-existing). Nits 1-3 optional.
