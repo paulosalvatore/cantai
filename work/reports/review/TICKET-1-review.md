@@ -192,3 +192,62 @@ npm test → Test Suites: 3 passed, 3 total; Tests: 39 passed, 39 total (api-que
 Nothing else changed in 7f866f1 beyond the three items + a dev-report update (implementation-log entry for this fix — current per F23).
 
 **Verdict: APPROVE.** All REQUEST-CHANGES items resolved and independently verified; delta is minimal and sound.
+
+---
+
+## Opus Merge-Counting Second Pass (D-022) — 2026-07-05
+
+- **Reviewer:** Reviewer agent (opus judgment pass)
+- **Tip reviewed:** `origin/ticket/1-walking-skeleton` @ `2e2c816` (base `4a55484`)
+- **Context of this pass:** the Tech Manager's spawn instruction is explicit — **this merge triggers the FIRST PUBLIC Vercel deploy of the product.** That reframes the Vercel check the sonnet pass scoped away (line 153: "Vercel: Failing — out of TICKET-1 scope, deploy = TICKET-2"). If merging this PR is the act that publicly deploys, a red Vercel check is not out-of-scope noise — it is the deploy failing.
+
+### Reviewer-run verification (this pass)
+
+```
+npm test        → Test Suites: 3 passed, 3 total; Tests: 39 passed, 39 total
+rm -rf .next && npm run build → ✓ Compiled successfully (next 15.5.20), 7 routes, clean
+```
+
+Build and unit suite independently reconfirmed green on the current tip. E2E not re-run this pass (prior gate + prior reviewer ran it green; unchanged since).
+
+### Judgment axis 1 — is this the RIGHT foundation for the armed wave? ✅ YES
+
+Cross-read `TICKET-6-persistence.md` (frozen store interface) on `main`. The skeleton is **compatible-by-design**, not by luck:
+
+- TICKET-6 *explicitly owns* `lib/store.ts` + `app/api/queue/**` and plans "mechanical async-await updates" — the sync→async swap (`addToQueue`→`addEntry`, `advanceQueue`→`advance`, add `roomId`) is scoped INTO wave-1, not something the skeleton must pre-empt.
+- TICKET-6 explicitly preserves TICKET-1's `QueueEntry` shape ("keep TICKET-1's `QueueEntry` plus reserve `graceRequeue?`"), and mandates `lib/store.ts` stay the single import point. The skeleton's `app/page.tsx` / `app/tv/page.tsx` import only the `QueueEntry`/`Mode` *types* from `@/lib/store` — which survives the swap since TICKET-6 keeps re-exporting from that path (and is on TICKET-6's must-not-touch list, so those components won't be edited).
+- The skeleton bakes in nothing the wave must undo. The store is the one seam that changes, and it was authored knowing this skeleton's exact shape. Good foundation.
+
+### Judgment axis 2 — adversarial pass over the public-deploy surface
+
+**FINDING A (BLOCKING for a deploy merge) — Vercel deploy is failing on a project misconfig, and this merge deploys.**
+`npx vercel inspect dpl_26hgLVCVAWfZYiJUnnuzb2ovGXcb --logs`: the Next.js build compiles cleanly on Vercel too, then fails at the end with:
+> `Error: No Output Directory named "public" found after the Build completed. Configure the Output Directory in your Project Settings.`
+This is not a code defect — it is the Vercel **project's Framework Preset not set to Next.js** (it is treating the app as a static "Other" project and looking for a `public/` output dir). The production deploy will fail identically. Merging now, for a PR whose stated purpose is the first public deploy, produces a broken public deploy. There is no `vercel.json` in the repo to override the setting.
+**Cheap, durable fix (recommended):** add a one-file `vercel.json` with `{ "framework": "nextjs" }` at repo root — this pins Next.js detection independent of dashboard drift and turns the check green. **Alternative:** TM sets Framework Preset = Next.js on `paulosalvatores-projects/cantai` in the Vercel dashboard (creds-means-execute) and re-triggers the preview to confirm green. Either way, the preview deploy must be verified green before the merge that deploys.
+
+**FINDING B (cheap honesty fix, pre-public) — the in-memory limitation note understates the serverless reality.**
+On Vercel serverless, the module-level `let queue` in `lib/store.ts` is **per-lambda-instance**, not merely "resets on restart." Two concurrent patrons (or a patron + the TV) can be routed to different lambda instances and see *different, diverging queues at the same time* — submits landing on one instance are invisible to polls served by another. TICKET-6 itself names this ("TWO patrons can hit two instances and see different queues"). The patron footer currently says only *"Prototype — queue resets on server restart"* (`app/page.tsx:311`) and the README/store JSDoc say the same. For a FIRST PUBLIC session that is misleading — a user will see songs vanish/reappear and think it's broken. **Requested (prototype-proportionate):** reword the footer + README limitation note to be honest about the multi-instance behavior for the deployed prototype (e.g. "Early prototype — the queue is not yet shared across servers; it may look inconsistent between phones until persistence lands"). This is a cheap pre-merge mitigation, not a blocker on its own, but it should ride with the deploy fix given the public exposure.
+
+### Judgment axis 3 — correctness / robustness (would it embarrass a first public user?)
+
+- **Double-advance race (App Tester LOW) — accept, note.** `advanceQueue()` is an unconditional `shift()`; both the `onStateChange` ENDED handler and the manual Skip button call `POST /api/queue/advance`. A near-simultaneous ENDED + Skip drops two entries. Low probability with a single host at one TV, self-corrects on next poll, no data loss beyond one skipped song. Acceptable for the prototype; TICKET-7 host controls is the natural home for a guarded advance.
+- **Unauthenticated `/api/queue/advance` — known gap, note.** Anyone who can reach the deployment can skip the current song (no host auth). Consistent with the security PASS-WITH-NOTES posture and deferred to TICKET-7 (host controls). Fine for early access; worth the TM knowing the public URL exposes an open skip.
+- **localStorage-disabled browser (NIT).** In a browser with localStorage blocked (private mode / sandbox), the boot effect returns early leaving `patronUuid = ""`; the nickname gate can still be passed (in-memory), but submit then fails the server's strict `UUID_RE` with `"patronUuid must be a valid UUID"` — an opaque error for the user. Edge case, minority of first users; a NIT for a later pass (fall back to an in-memory uuid when ls is null).
+- **Polling / player lifecycle — sound.** 3s poll with interval cleanup on unmount, errors swallowed with retry-next-tick; `currentVideoIdRef` guard correctly prevents double `loadVideoById` between the queue-change effect and the ENDED handler. No leak or thrash observed in the build/route output.
+
+### Merge-time mechanical note (not a code change) — the PR is CONFLICTING
+
+GitHub reports `CONFLICTING`. `git merge-tree` shows the ONLY conflict is `work/events/2026-07.jsonl` (both branches appended to the auto-committed event log). It is a union-merge — the TM resolves it mechanically at merge time (keep both sides' lines). Not a code finding; flagged so the TM expects it.
+
+### Verdict
+
+**REQUEST-CHANGES** (opus, merge-counting).
+
+The skeleton itself is the right foundation, is cleanly built, and its gates are sound — I would APPROVE the *code* as a walking skeleton. But the merge-counting APPROVE means "TM merges **and deploys**," and I will not issue it while the deploy this merge triggers is red for a project-config reason, on the product's first public exposure. Concrete, prototype-proportionate items:
+
+1. **(Blocking)** Make the Vercel deploy green — add `vercel.json` `{ "framework": "nextjs" }` (recommended, durable) or fix the dashboard Framework Preset — and verify the preview deploy goes green before merge.
+2. **(Ride-along, pre-public)** Reword the queue-limitation note (patron footer + README + store JSDoc) to be honest about per-instance divergence on serverless, not just "resets on restart."
+3. **(TM merge-time)** Resolve the `work/events/2026-07.jsonl` append conflict (union) — mechanical, expected.
+
+Notes 3–6 above (double-advance, open advance endpoint, localStorage-disabled NIT) are acceptable-and-documented for an early-access prototype — recorded, not blocking. Re-review will confirm items 1–2 and the green preview deploy, then flip to APPROVE.
