@@ -1,7 +1,7 @@
 # TICKET-10 — Rotation modes UI — Plan
 
 - Product: cantai · Branch: `ticket/10-rotation-modes` · Worktree: `.worktrees/ticket-10` · App port: 3010
-- Status: APPROVED-BY TM dispatch (full authoritative ticket + integration constraints supplied). Proceeding.
+- APPROVED-BY: auto-approved (no plan-gate escalation — TM dispatched the full authoritative ticket + integration constraints) — validated downstream by gates + TL merge of PR #14.
 
 ## Approach
 
