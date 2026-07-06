@@ -1,10 +1,10 @@
 # cantai — Board
 
-_Last updated: 2026-07-06 (10 PRs merged; feedback widget LIVE; PR #10 in review)_
+_Last updated: 2026-07-06 (11 PRs merged; repo PUBLIC, CI restored+green; wave-2 finale building)_
 
 ## Needs user (TL)
 
-- 🔴 GitHub Actions BILLING broken on paulosalvatore account — CI dies in 2s on every PR ("payments failed / spending limit"). GitHub → Settings → Billing & plans. Binding condition from PR #4 merge exception: first post-merge CI run on main must be verified green after fix.
+- 🟢 RESOLVED-FOR-NOW: GitHub Actions billing — TL made the repo PUBLIC (prompt 007, 2026-07-06); CI runs free and is GREEN (PR #10 merged on a real green build-and-test run; PR #4 exception condition satisfied). If the repo goes private again, fix account billing first. 🔴 Account billing itself still broken (affects other private repos).
 - 🔴 **URGENT (upgraded by PR #11 opus pass): Upstash Redis provisioning** on the Vercel project (Marketplace → Storage → add UPSTASH_REDIS_REST_URL/TOKEN env). Until then, LIVE user feedback AND queues silently evaporate per-lambda — the feedback widget promises "um robô lê cada um" but memory-driver feedback is lost. One dashboard action makes queues + feedback durable, zero code changes.
 - 🟡 YouTube Data API v3 key → Vercel env — unblocks TICKET-8 live search. ⚠️ QUOTA REALITY (opus PR #8 finding, binding condition): default quota = 10,000 units/day and each search costs ~101 units → ~99 searches/day TOTAL across ALL venues; one modest bar night ≈ 80% of it. Before provisioning the key: file a YouTube quota-increase request (or accept day-one degraded fallback), and consider the filed follow-up (move search cache + rate limits onto Upstash so caching actually reduces burn).
 
@@ -30,7 +30,9 @@ _Last updated: 2026-07-06 (10 PRs merged; feedback widget LIVE; PR #10 in review
 | TICKET-0 | Bootstrap | DONE | Repo created 2026-07-05; definition in work/tickets/TICKET-0-bootstrap.md |
 | TICKET-1 | Walking skeleton / prototype core | DONE | PR #4 merged: full gate chain (App Tester PASS, Security MEDIUMs fixed, sonnet+opus APPROVE); CI billing exception recorded |
 | TICKET-6 | Durable persistence (wave 1) | DONE | PR #7 merged: full chain (Security+hardening, sonnet+opus APPROVE; opus verified real @upstash/redis semantics). Upstash activates on TL provisioning |
-| TICKET-7 | Host controls (wave 2) | IN REVIEW | PR #10: App Tester PASS, Security folded (117/117); sonnet review running |
+| TICKET-7 | Host controls (wave 2) | DONE | PR #10 merged: full chain + FIRST real CI-green gate (190/190 local, Actions pass). Public-repo security recheck clean. Needs HOST_TOKEN env to go live |
+| TICKET-9 | Rooms + QR + table (wave 2) | IN PROGRESS | Dev (opus), .worktrees/ticket-9, port 3013 |
+| TICKET-12 | Telemetry (wave 2) | IN PROGRESS | Dev (opus), .worktrees/ticket-12, port 3012; rebases last |
 | TICKET-11 | Feedback widget (wave 2) | DONE | PR #11 merged (151/151 on merged tree). Intake-contract condition + Upstash URGENT recorded |
 | TICKET-3 | Rotation/fairness engine lib | DONE | PR #3 merged: sonnet+opus APPROVE; opus caught real peek≠play starvation bug pre-merge; 47/47 tests |
 | TICKET-4 | Design language + mockups | DONE | PR #2 merged, TL-ratified |
