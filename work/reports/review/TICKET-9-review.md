@@ -166,3 +166,62 @@ This is the largest PR of the wave and it ships cleanly. Multi-tenancy is correc
 Two cosmetic nits (missing upfront roomId validation on TV/admin server components; unguarded router.push on landing) are filed above and should become small follow-up tickets — they do not affect correctness or security.
 
 **[reviewer] APPROVE — multi-room + QR join + table capture (PR #13). CI green, 233/233, 18 routes, App Tester PASS (isolation proven), Security PASS-WITH-NOTES (HIGH-1 + MEDIUM-2 resolved, MEDIUM-3 → #14). Two cosmetic nits, non-blocking.**
+
+---
+
+# Opus second pass (D-022 merge-counting) — 2026-07-06
+
+- **Tip reviewed:** `e87489b` (origin/ticket/9-rooms-qr) · base `b82c4948`
+- **Reviewer model:** opus (judgment layer — migration/compat, architecture direction, physical-onboarding UX, #10 seam)
+- **Verdict:** **[reviewer] APPROVE** (this is the merge-counting APPROVE)
+- **CI at this tip:** `build-and-test` PASS (1m48s, terminal), Vercel + Vercel Preview PASS. Own run: 233/233 (15 suites, 0.6s), `next build` 20 routes, zero type errors.
+
+This is the highest-consequence merge since cantai's first deploy — it turns a single-room prototype multi-tenant on a LIVE product. The sonnet pass covered structure/correctness well. The opus layer below is the deploy-moment, architecture-direction, and physical-UX judgment only this tier should sign.
+
+## 1. Migration / compat on the LIVE product — walked concretely (PASS, no hard break)
+
+I traced every pre-9 client contract against the post-9 server to answer: does an active bar night survive the deploy?
+
+- **Default-room key continuity — PRESERVED.** `lib/store/**` is UNTOUCHED by this PR (`git diff --stat base..tip -- lib/store lib/store.ts lib/store/types.ts` → empty). Pre-9 keys `room:default:{queue,paused}` are byte-identical post-9. No data migration, no key rename, no loss.
+- **API param defaults — PRESERVED.** Pre-9 `/api/queue` GET/POST hardcoded `DEFAULT_ROOM`. Post-9 `resolveRoomId(absent) → "default"`; `/api/queue/advance` and every `app/api/host/*` route (`roomIdFromRequest` → `DEFAULT_ROOM`) do the same. An old client bundle still in memory (phone or bar TV) sends NO `room` param and keeps hitting the exact same default queue. Verified across all 8 host/queue routes.
+- **localStorage uuid continuity — PRESERVED.** Pre-9 keys `cantai_patron_uuid` / `cantai_nickname` are read by post-9 `PatronRoom` unchanged (per-room nick layers on top with `cantai_nickname` as first-visit fallback). Patrons keep their identity across the deploy.
+- **Host session continuity — PRESERVED (stronger than required).** Default room keeps the legacy `cantai_host` cookie name AND the session-derivation string `cantai-host-session-v1` is unchanged (confirmed against pre-9 `lib/host-auth.ts`). An open `/admin` session cookie STILL validates on the default room post-deploy — the host does not even need to re-login. `resolveRoomToken("default")` still returns env `HOST_TOKEN`.
+- **Redirects — no dead links.** Legacy `/tv` → `/default/tv`; `/tv?room=x` → `/x/tv`.
+
+**The single real discontinuity (LOW):** the root URL `/` changes meaning from "the patron queue" to the new Landing/create page. Consequences, walked:
+  - Old `/` bundle already open + still running → keeps polling+submitting the default queue. No break.
+  - Old `/` that RELOADS mid-night → lands on Landing, not the queue. The old queue still lives intact at `/default`; a patron just needs that path (or to scan a room QR).
+  - A brand-new patron scanning a pre-existing root-pointing QR mid-deploy → Landing, needs one extra hop.
+  This is a soft, fully-recoverable shift with zero data loss, and it is the intended product evolution. For a PMF prototype with a handful of pilot venues it is acceptable. **Recommendation (non-blocking):** tell any live pilot venue to bookmark `/default` (or park the migration by having the venue re-create as a named room). No code change required to merge.
+
+**Conclusion: there is no window where an active bar night hard-breaks.** Server-side continuity is complete; the only cost is a soft root-semantic change with a clean escape hatch.
+
+## 2. Two parallel store stacks — coherent for PMF, note the accumulating driver-selection duplication (PASS)
+
+`lib/rooms.ts` deliberately mirrors the frozen `lib/store` driver pattern (Memory/Upstash backends, same env-var selection, same Redis constructor) rather than extending the frozen TICKET-6 contract. Combined with `lib/feedback-store.ts`, the repo now has THREE modules each re-implementing `resolveDriver()` + Upstash construction. Judgment: **pattern-mirroring is the right call for PMF here** — each domain is tiny (rooms is one entity, ~240 lines), the header documents WHY it stays parallel (the store contract is frozen and out of this ticket's write scope), and forcing a shared abstraction now would touch frozen code and inflate scope. This is NOT the moment to demand consolidation. But the driver-resolution copy is now at three sites — I'm flagging it as a **post-#14 refactor candidate** (extract a shared `createRedisBackend()` / driver resolver once the store contract can be reopened), so the mirroring doesn't silently become four/five copies. File as a follow-up, do not block.
+
+Room deletion/expiry is genuinely absent — orphaned `room:<id>:meta` + queue keys accumulate. The monotonic `rooms:count` counter makes ROOM_MAX strictly more conservative under this (over-counts, never under), so it is safe, and the deferral reason is valid (expiry must coordinate with the frozen queue keys). Correctly recorded for #14.
+
+## 3. Default-room security posture — locked-or-env-secured, NOT permanently unlocked (PASS)
+
+The `default` room is an implicit permanent tenant on every deployment (no record, env-token governed). Posture walked: in production `resolveRoomToken("default")` returns env `HOST_TOKEN` if set (the same secret that already guards the live prototype's `/admin`), else `null` → **LOCKED, deny-all**. So default is either protected by the existing HOST_TOKEN or fully locked — never silently open. Patron submit to `?room=default` is unauthenticated exactly like every other room (bounded by `QUEUE_MAX`). This is an acceptable back-compat bridge. **Note for #14:** once accounts land, decide default's fate explicitly (retire, or migrate the live pilot's default queue into a named room) so a differently-secured tenant doesn't linger indefinitely. Non-blocking.
+
+## 4. QR join flow as the physical onboarding moment (PASS — one i18n nit)
+
+Walked as a patron on bar wifi: scan QR (`window.location.origin + /<room>`, short slug, `errorCorrectionLevel "M"`, 220px — comfortably scannable; host code never encoded) → `/<room>` server component validates + renders → nickname gate (one tap) → SongSearch pick → submit. Resilience:
+  - **Joined state survives network loss:** identity (uuid/nick/table) is in localStorage per room; a reload re-enters the same room (direct URL + `cantai_last_room` prefill). Poll retries silently on the next 3s tick; submit fails soft with "Network error — please try again."
+  - **Payloads:** QR value and API bodies are small (body caps 1KB rooms / 4KB queue). No oversized-payload risk for a drunk patron.
+  - **Bad link:** friendly pt-BR "Essa sala não existe" with a Voltar button.
+  - **NIT (UX, non-blocking):** the patron room UI is in ENGLISH ("Add a song", "Your nickname", "Live queue", "Join queue") while landing/new/errors are pt-BR — an inconsistency for a Brazilian bar audience. This is likely one of the two UX nits sonnet already flagged; worth a small polish follow-up. Does not block.
+
+## 5. TICKET-10 readiness — the seam is clean; #10 adds a mutator, not a room refactor (PASS)
+
+`RoomSettings { mode }` is persisted in the room record and surfaced in `PublicRoom`, so #10 can extend it with rotation-mode fields and they'll store + serve without reshaping the room model — the extension point exists. **Two heads-up for #10 (not defects here):** (a) `lib/rooms.ts` has get/create/count but **no `updateRoom`/`setSettings`** — #10 must add a mutator method to `RoomBackend` (additive, not a refactor); (b) `settings.mode: Mode | "full"` conflates per-SONG mode (`sing`/`listen-dance`) with a room-level rotation mode — #10 should define a proper `RoomMode` type rather than overload `Mode`. The seam holds; #10 will not have to re-migrate rooms.
+
+## Opus verdict
+
+Migration is engineered, not hoped — full server-side continuity for the default tenant (keys, params, uuid, and even the host cookie), redirects for every legacy path, and only a soft, recoverable root-URL semantic shift. Multi-tenancy is isolated at store, cookie, and route layers with `isValidRoomId` before every key interpolation. The parallel room store is the correct PMF trade-off (documented, frozen-contract-preserving); the driver-duplication and room-expiry are correctly deferred to #14. Security residual (MEDIUM-3) is real but gated behind an Upstash-credential leak with queue-control-only blast radius, and #14 replaces host codes with accounts. The #10 seam is clean.
+
+Findings are all LOW/NIT and non-blocking: (a) root-URL soft shift — advise pilot venues to use `/default`; (b) driver-selection duplication now at 3 sites — post-#14 refactor candidate; (c) patron-room English vs pt-BR i18n inconsistency; (d) #10 will need a room-settings mutator + a distinct RoomMode type; (e) default-room fate to be decided at #14. None affect correctness, security, or the deploy safety of this merge.
+
+**[reviewer] APPROVE (opus, merge-counting) — multi-room + QR join + table capture (PR #13). Deploy-moment safe: default-tenant continuity verified end-to-end (frozen store keys, param defaults, localStorage uuid, legacy host cookie), no active-bar-night hard break; only a soft, recoverable root-URL shift. CI terminal-green, 233/233 own run, build 20 routes clean. All findings LOW/NIT → #14/#10 follow-ups.**
