@@ -1,6 +1,6 @@
 # cantai — Board
 
-_Last updated: 2026-07-05 (PR #4 MERGED — first public deploy; wave 1 launched)_
+_Last updated: 2026-07-06 (LIVE at cantai-snowy.vercel.app; wave 1 building)_
 
 ## Needs user (TL)
 
@@ -23,6 +23,6 @@ _Last updated: 2026-07-05 (PR #4 MERGED — first public deploy; wave 1 launched
 | TICKET-4 | Design language + mockups | DONE | PR #2 merged, TL-ratified |
 | TICKET-5 | Roadmap + specs (modes/feedback/monetization) | DONE | PR #1 merged (Reviewer APPROVE after B1/B2 fixes; opus-skip recorded, docs-only) |
 | TICKET-19 | PMF wave ticket batch | DONE | PR #5 merged (Reviewer APPROVE after B1 wave-dependency fix; opus-skip, docs-only). Tickets 6-12+18 armed in waves |
-| TICKET-2 | Deploy verification | IN PROGRESS | Vercel prod deploy of main; live URL verification agent running |
+| TICKET-2 | Deploy verification | DONE | PR #6 merged. LIVE: https://cantai-snowy.vercel.app (cantai.vercel.app was name-squatted). All prod e2e checks PASS |
 | TICKET-8 | YouTube search (wave 1) | IN PROGRESS | Dev (opus), .worktrees/ticket-8; degraded paste-link mode until TL provides API key |
 | TICKET-18 | TV fullscreen + bigger type (wave 1) | IN PROGRESS | Dev (fable), .worktrees/ticket-18; design-system-bound |

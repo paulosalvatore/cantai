@@ -3,7 +3,7 @@
 Cantai is a free, embeddable karaoke-queue platform any bar can run with zero setup: patrons join with a nickname, paste a YouTube URL for a song, and submit it to a shared queue; the venue screen plays the queue through the YouTube IFrame Player. Supports table numbers, sing vs listen/dance entries, and venue rotation modes (full karaoke, 2 per table, one per person). Free early access; professional paid plan later. Built-in feedback loop drives progressive development.
 
 - **Stack:** Next.js (single app, App Router, TypeScript)
-- **Deploy:** Vercel — live URL: _(recorded after TICKET-2)_
+- **Deploy:** Vercel — live URL: **https://cantai-snowy.vercel.app**
 - Built by the [agentic software house](https://github.com/paulosalvatore/agentic-software-house).
 
 ## Running locally
@@ -54,7 +54,7 @@ The Upstash driver uses [Upstash Redis](https://upstash.com/) via the Vercel Mar
 
 - **Single room** — one shared queue for the whole venue. Multi-room / venue codes are scope-out.
 - **No YouTube search** — patrons paste a YouTube URL (full, short, shorts, embed formats all supported). YouTube Data API text search requires an API key (needs-user item for a future ticket).
-- **No auth / persistence / payments** — prototype phase.
+- **No auth / payments** — prototype phase. (Durable queue persistence is available via the `upstash` driver — see [Persistence](#persistence).)
 
 ## Tech notes
 
