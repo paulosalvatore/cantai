@@ -175,3 +175,53 @@ None.
 ## Verdict
 
 **[reviewer] APPROVE** — Implementation is spec-faithful, ownership discipline is clean, 106/106 unit tests green (reviewer-verified), build clean, e2e 3/3 confirmed (app tester + correct-port replay), security M1 fixed correctly. The watermark design is sound for the current scale; the same-ms non-determinism is a noted-and-acceptable trade-off. No blockers. All gates pass. Ready to merge (per sequential-merge rule, merge after or rebase on top of PR #10 if that merges first).
+
+---
+
+# Opus merge-counting second pass (D-022 / D-011)
+
+- **Reviewer:** Reviewer agent — opus judgment tier (the merge-counting pass)
+- **Date:** 2026-07-05
+- **Verdict:** **APPROVE** (merge-counting)
+- **Self-verified this pass:** `npx jest` → 106/106 green; `npm run build` → green (8/8 static, `/api/feedback` dynamic route registered); `gh pr checks 11` → Vercel pass + Vercel Preview Comments pass, **no required check pending** (S1 satisfied — the dev report's "CI billing broken" note is stale; checks are terminal-green).
+
+## Focus of this pass — the intake contract (load-bearing: the house feedback-intake loop programs against this export)
+
+I re-scoped the watermark risk the first pass filed as a NIT. **The first pass under-characterized it.** The gap is not merely "astronomically unlikely same-millisecond random-suffix non-determinism" — it is a broader **commit-reordering** gap:
+
+- `id` is stamped at `generateFeedbackId()` (POST, from `Date.now()`) but the record becomes listable only after `rpush(feedback:index)`, which commits ~one Upstash round-trip *later* (`add()` does `set(item)` then `rpush`). So **id-timestamp order ≠ index-commit order** whenever writes overlap.
+- `list({since})` filters `id > since` and the intake advances `since` to the newest id in each page. A concurrent writer whose id-timestamp is *older* than the current watermark but whose `rpush` commits *after* an intake read is filtered out by `id > since` on every subsequent read → **silent, permanent loss**.
+- Scope of exposure: on the Upstash (production) driver the index is a single shared list, so the reordering is **global across lambdas**, not per-lambda; the loss window is the `set`+`rpush` latency (tens of ms), not sub-ms. A busy burst straddling an intake poll could drop more than one entry, not "one at worst."
+
+**Why this is still an APPROVE, not REQUEST-CHANGES:**
+1. AC3 ("retrievable by the admin read path with a `since` watermark") is literally met — the contract *works*; completeness-under-concurrency is not an AC of this ticket.
+2. The read path is **not consumed yet** (#12 feedback-intake agent is future, framework-side per D-046). Nothing inherits the hole today.
+3. It is **paper-over-able by the consumer** without a server change: the intake can (a) hold the watermark back by a small safety margin (the `set`+`rpush` window is bounded well under a second) + dedupe by processed-id set, or (b) run a periodic status-based safety re-scan for stray `status:"new"` items. Per role discipline ("request changes for correctness the consumer can't paper over — not for taste"), this stays a documented follow-up.
+
+**But the record must be corrected so #12 is built defensively.** The code comments + first-pass review oversell the guarantee ("a clean lexicographic cut", "sound for the intake's idempotency"), which would lead a future intake author to a naive advance-to-max loop that silently loses feedback. Recorded as a **HIGH-severity contract caveat**, required **before/with #12** (not optional):
+
+> **REQUIRED-BEFORE-#12:** Either make the index commit-ordered (watermark on list position / an atomically-assigned sequence instead of a value-derived id), OR document the true guarantee at the contract boundary and mandate the robust consumption pattern (lagging watermark + id dedupe, or status re-scan). Do not build the intake against a naive `since = max(id)` advance loop.
+
+### Other contract findings (all NIT / follow-up, none blocking)
+
+- **PATCH is get-modify-set without CAS (NIT).** `updateStatus` reads the record, mutates `status`, writes the whole record back — last-write-wins. Fine now: the intake is a single sequential writer and mark-processed is idempotent (`new→triaged` re-applied = `triaged`), so AC5 idempotency holds. Flag for when #15 close-the-loop (`→shipped`) can write concurrently with #12 — a concurrent pair could clobber. CAS/atomic field-update recommended then.
+- **`list()` pulls the whole index every call (NIT / scale).** `lrange(index, 0, -1)` then in-memory sort/filter/slice — `limit` is applied client-side, not at Redis, and the index grows unbounded. Harmless at early-access volume; revisit before high feedback volume.
+- **`add()` write order is correct.** `set(item)` before `rpush(index)` means a crash leaves an unindexed orphan item (never listed) rather than a dangling index pointer — the safe failure direction. Documented in-code. ✓
+
+## Volatility honesty — product-integrity call (needs-user bump, not a blocker)
+
+The confirmation copy promises *"Valeu! Um robô supervisionado por humanos lê cada um desses."* The live app runs the **memory driver** until Upstash is provisioned — feedback lands in per-lambda memory, is unreadable by any intake, and evaporates on lambda recycle. So the promise is currently **unkept in production** (compounded by #12 not existing yet). The widget itself is correct and the gap is documented internally (module header, `.env.example`, dev report) — this is not a code defect and not a merge-blocker. But a lost early-access user's feedback is a real product cost against the TL's stated differentiator. **Recommendation to the TM: bump "provision Upstash for the feedback store" to needs-user URGENT** and provision it before leaning on the loop — every day on the memory driver silently loses the product's fuel.
+
+## Widget UX judgment on the live product (PASS)
+
+- **FAB occlusion:** grep confirms the patron page (`app/page.tsx`) and `globals.css` carry **no `position:fixed`/`sticky`/fixed-bottom CTA**, so the FAB (`right:16 bottom:16`, 48px, z-index 1000) occludes nothing in the submit-song flow — content scrolls under it (standard FAB behavior). The 390px evidence is clear and the 320px reasoning holds precisely because there is no fixed collision partner. (`/host` doesn't exist on this branch yet — TICKET-7 is unmerged — so the host-view case is not yet exercisable; nothing to review there now.)
+- **Keyboard-open state:** the sheet is a bottom sheet (`align-items:flex-end`), and the **sentiment row (the primary submit action) sits above the optional textarea** — so even with the mobile keyboard raised, the send taps remain reachable; the textarea is optional. Acceptable.
+- **NIT:** the FAB uses a flat `bottom:16px` with no `env(safe-area-inset-bottom)` — on notched iPhones it sits close to the home indicator. Cosmetic; follow-up.
+
+## Rebase surface vs current main (self-checked)
+
+`origin/main` advanced 6 commits (TICKET-8/18 merged) since the branch base. `git merge-tree` shows textual conflicts in exactly two **append-only** files — `.env.example` (both append a block) and `work/events/2026-07.jsonl` (event log, union-append) — both trivially resolvable by keeping both sides. **No code conflict:** #11 touches `app/layout.tsx` (unchanged on main), not `app/page.tsx` (which TICKET-8 rewrote). The first pass's "collision with PR #10" note is now moot — #10 hasn't merged; #8/#18 did — and the surface is still trivial.
+
+## Verdict
+
+**[reviewer] APPROVE (opus merge-counting).** Correct, spec-faithful, well-tested (106/106 self-verified), build + CI terminal-green, ownership clean, rebase surface trivial. No merge-blocker. Two things travel with the merge as recorded conditions, neither gating this PR: (1) the **HIGH-severity intake-contract caveat above is required before/with #12** so the intake is built against the true (weaker) completeness guarantee, not the over-sold "clean cursor"; (2) recommend the TM escalate **Upstash provisioning as needs-user URGENT** so the widget's promise stops silently losing early-access feedback.
