@@ -19,9 +19,16 @@ Fresh start on the wave-1 fan-out (sole owner of `app/tv/**` per the ticket's fi
 - **`playwright.config.ts`** — additive `PORT` env override (default 3040 unchanged) so parallel worktrees can e2e without port clashes. Only shared file touched; flagged for the reviewer.
 - **`.claude/skills/run-app/SKILL.md`** — PORT-override + `/tv` fullscreen/flag notes (run-app truthfulness rule).
 
-## Commits
+## PR + commits
 
-- (initial delivery commit — SHA recorded on the PR; see PR #? thread)
+- **PR:** https://github.com/paulosalvatore/cantai/pull/9 (draft, base `main`)
+- `3df17c7` — TICKET-18: TV mode — 10-foot restyle, fullscreen, wake lock, powered-by footer (full delivery: code + tests + evidence + plan + this report)
+- CI: repo required checks are the Vercel deploys — `gh pr checks 9` verbatim:
+  ```text
+  Vercel	pass	0	https://vercel.com/paulosalvatores-projects/cantai/GncbkjDXDtvrimhTHciXWkT734Lg	Deployment has completed
+  Vercel Preview Comments	pass	0	https://vercel.com/github
+  ```
+  (GitHub Actions CI is billing-broken house-wide — local verification below is the record per S1.)
 
 ## Self-verification (local; CI is billing-broken — known house issue)
 
