@@ -111,6 +111,16 @@ Opus review REQUEST-CHANGES (https://github.com/paulosalvatore/cantai/pull/4#iss
 
 E2E selectors unaffected by the footer text change (checked spec — none reference footer text). Re-verification: `npm run build` ✓ clean; `npm test` ✓ 39/39.
 
+### 2026-07-05 merge-from-main to unblock CI + tsconfig exclude
+
+While verifying the opus fixes, found PR #4 mergeable state CONFLICTING (main moved: rotation-engine, design, planning tickets merged). That is also why GitHub Actions NEVER ran on this PR — Actions can't build the merge ref for a conflicting PR, so the CI check silently never appeared. Actions run count for this branch was 0.
+
+- Merged `origin/main` into the branch; only conflict was `work/events/2026-07.jsonl` (add/add, append-only log) — resolved by union of both sides (14 + 28 = 42 lines, no dupes lost). Merge commit `3735b74` (bare git merge/push used: the sanctioned commit script cannot conclude a merge; documented here deliberately).
+- Post-merge build broke: root tsconfig `**/*.ts` include picked up the merged `packages/rotation-engine` sources (`allowImportingTsExtensions` error). Fixed by adding `"packages"` to tsconfig `exclude` — the rotation engine is a standalone package with its own tsconfig, not part of the Next.js app build.
+- Re-verification: `npm run build` ✓ clean; `npm test` ✓ 39/39.
+
+Vercel preview after vercel.json fix: **GREEN** (Deployment has completed). Awaiting first real GitHub Actions CI run now that the PR is mergeable.
+
 ## Friction
 - Node.js 25 `localStorage` global (stub without methods) causes Next.js 15 SSR failures for client components that access localStorage. Workaround: `--localstorage-file` flag. Candidate for a framework-level dev environment note (future inbox item if recurring across products).
 - `jest.config.ts` (TS format) requires explicit `ts-node` devDependency — not obvious from ts-jest docs.
