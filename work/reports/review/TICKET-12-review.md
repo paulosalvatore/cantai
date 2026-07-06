@@ -79,3 +79,65 @@ Diff touches only owned new files (`lib/telemetry*`, `app/api/t/`, `scripts/tele
 ## Verdict
 
 **APPROVE** — evidence: own 243/243 unit + build + e2e run, deterministic rollup regeneration, CI green on the exact tip, and the code reads above. Condition C1 (song_played single-source) binds at the post-#9 rebase; the TM should hold the final rebase to it before merge.
+
+---
+
+# Opus merge-counting pass (D-022 second tier) — final post-rebase state
+
+- **Reviewer:** Reviewer agent, opus tier (D-011 / D-022 merge-counting pass)
+- **Date:** 2026-07-06
+- **Reviewed tip:** `8335ace` (branch `ticket/12-telemetry`; code tip `905e2e9`, `8335ace` is the events-jsonl auto-commit on top). Diff read locally per git-local-first: `git diff 1d08b0a..origin/ticket/12-telemetry` (base = merge-base with origin/main, which is the TICKET-9 merge commit). This pass was deliberately held until after the post-#13 rebase and reviews the true final state including instrumentation.
+- **Verdict:** **APPROVE (merge-counting)** — with the non-blocking findings below for the TM and #16.
+
+## C1 — song_played single-source: VERIFIED, airtight
+
+- `lib/telemetry-types.ts:47`: `CLIENT_ALLOWED_EVENTS = ["patron_joined"]` — song_played removed, with an explicit C1 comment explaining why (lines 42–45).
+- One and only one emitter in the tree: `grep -rn 'track("song_played"' app/ lib/` → exactly `app/api/queue/advance/route.ts:18`, guarded `if (next)`, carrying the promoted entry's real `roomId`/`patronUuid`/`mode`.
+- Beacon rejection tested at both tiers: `__tests__/api-t.test.ts:72` asserts 400 + nothing stored for `song_played` (and all server-observable names); `e2e/telemetry.spec.ts` re-proves the poisoning guard against the real server. `__tests__/telemetry-instrumentation.test.ts` ("the ONE song_played source") asserts exactly one event emitted on advance and zero on empty-queue advance. **C1 resolved.**
+
+## Fail-open invariant under instrumentation: VERIFIED
+
+**track() itself never rejects — by construction, not just by test.** In `lib/telemetry.ts:69–94` the *entire* body — kill-switch read, record construction (`String(input.roomId ?? "")` coercions), `sanitizeProps`, and the awaited `store.append` — sits inside one try/catch that swallows sync and async failures alike and returns `false`. Nothing executes outside the try. `track` is exported as a plain unbound closure (no `this`), so `void track(...)` at a call site can produce neither a synchronous throw from inside track nor an unhandled promise rejection. The dead-store unit test (`telemetry-instrumentation.test.ts:74–81`, `append` mocked to reject; route still 201) confirms it end-to-end.
+
+**Per-route synchronous argument-construction audit (the real remaining risk — a throw while *building* track's arguments happens before track's catch).** All 8 instrumented routes audited; every argument expression is safe in scope:
+
+| Route | Emit | Arg-construction risk | Safe because |
+|---|---|---|---|
+| `queue/route.ts` (×2) | submit_rejected, song_queued | `entry.patronUuid`, `typeof rawVideoId` | `entry` is a locally constructed object in scope at both sites; `typeof` never throws and `rawVideoId` is declared earlier (lines 63/79) |
+| `queue/advance/route.ts` | song_played | `next.patronUuid`, `next.mode` | guarded `if (next)` |
+| `host/skip/route.ts` (×2) | song_skipped, host_action | static literals + `roomId` | `roomId` validated before (401 path returns first) |
+| `host/pause/route.ts` | host_action | `paused ? ... : ...` | `paused` is a validated local boolean |
+| `host/remove/route.ts` | host_action | static | guarded `if (removed)` |
+| `host/reorder/route.ts` | host_action | static | guarded `if (moved)` |
+| `rooms/route.ts` | room_created | `created.room.id` | guarded — `if (!created)` returns 503 first |
+| `search/route.ts` (×2) | search_performed | `params.get("room") ?? ""`, `uuid`, `.length` | `params`/`uuid` in scope (`uuid = rawUuid \|\| "anon"`, line 62); `cached`/`results` non-null in their branches |
+
+The `req.nextUrl`-on-plain-`Request` class of bug the dev caught: no remaining instances — no track call site reads `req.*` at all; the only header read feeding telemetry is `clientIp()` inside `/api/t`, which uses null-safe `headers.get(...)?.trim() ?? ""`. The one `await track(...)` in the tree is inside `/api/t` itself (line 113) — correct there (it IS the telemetry path and track never rejects); zero awaits in user routes.
+
+## Event-quality judgment (will the rollup be honest?)
+
+- **song_played first-song undercount** — documented in the dev report (line 105) and flagged for #16. Acceptable: a consistent proxy (undercounts each session by ≤1); the alternative (instrumenting play-start in the TV client) is UI-owned, outside this ticket.
+- **search_performed on cached hits** — correct, not a double-count: the cached branch returns before the API branch, so exactly one emit per user search request. Counting cached searches is right — search-no-submit friction is about user intent, not YouTube quota.
+- **host skip dual emit** (song_skipped + host_action) — intentional and non-overlapping: the rollup consumes song_skipped in Engagement/Friction and host_action in the demand-proxy table; no metric double-counts.
+- **Finding F2 — `noshow` is a dead column.** `song_skipped` props document reason `"host" | "noshow"` and the rollup renders a "No-show skips" column, but nothing in the tree ever emits `reason: "noshow"` — the TV auto-advance path goes through `/api/queue/advance`, which emits `song_played` for the *next* entry and nothing for a skipped-over no-show. The column will read 0 forever until an emitter exists. Non-blocking (schema is right, data is merely absent), but **#16 should either wire a noshow signal into the advance/TV path or drop the column** so the rollup doesn't imply a measurement it isn't making.
+
+## patron_joined gap — acceptable, with a hard requirement on #16
+
+Beacon-only, zero client wiring → **zero patron_joined events at merge**. Judged against the PO's telemetry-now intent, this does NOT hollow out retention: the Retention table (active days, sessions, session minutes) derives from *all* server-emitted events, and `uniquePatrons`/subs-per-patron derive from uuids on song_queued/search — every *participating* patron is counted from day one. What stays dark until #16: (a) pure lurkers (patrons who join but never search/queue) and (b) the join→first-submit conversion funnel. Plainly: **#16 must add the one-line client beacon on room-page mount — fire once per patron session, with the patron uuid, to `/api/t` — or audience-size and conversion metrics never light up.** The beacon side is fully built, validated, rate-limited, and e2e-tested; the remaining work is one client call.
+
+## Merge-order interactions (#13) — checked
+
+Post-#9 route surface swept: `rooms` POST instrumented (room_created with the real created id — tested); patron join has no server surface post-#9 (join = client page landing → the deliberate beacon design above); `/api/host/session` is an auth probe/logout, not a spec event — correctly uninstrumented; `queue`/`advance`/`search` all carry real multi-room `roomId`s. No spec-expected event lost to the merge order.
+
+## Own verification on the exact tip (S1) — and one CI process finding
+
+- `npx jest` on `8335ace`: **20 suites, 292/292 passed** (matches Dev claim).
+- `npx next build`: clean; all instrumented routes + `/api/t` compile as dynamic routes.
+- `npx playwright test`: **17/17 passed (34.2s)** including the 3 telemetry beacon specs.
+- **Finding F1 — CI never ran on the instrumented commits.** The last GitHub Actions build-and-test run (28811050541, success) is on `edfaf14` — the pre-rebase, pre-instrumentation state. The tip `8335ace` carries only Vercel checks. The branch is unprotected so nothing is formally required-and-pending (S1's letter is satisfied: all present checks terminal-green), and my local build+unit+e2e on the exact tip substitutes as evidence — but the App-Tester waiver leaned on "e2e in CI", so the gap matters. **It self-heals:** mergeStateStatus is CONFLICTING (F4), so the TM must push a conflict-resolution commit anyway, which re-triggers CI — **TM: confirm that CI run green before merging.**
+- **Finding F4 — merge conflict is benign:** the only file both sides touched since base is `work/events/2026-07.jsonl` (append-only event log; no `.gitattributes` merge=union in this repo). Resolve as the union of both sides.
+- **F5 (nit):** dev report's status line still says "233 unit ✓, 14 e2e ✓" from the pre-rebase state; the final-rebase section below it is current. Substance intact.
+
+## Verdict (merge-counting)
+
+**APPROVE.** C1 verified resolved in code and tests; the fail-open invariant holds by construction at track() and at all 8 instrumented call sites (no synchronous-throw or unhandled-rejection path found); event semantics will feed an honest rollup with the documented undercounts; the patron_joined gap is an acceptable, well-fenced deferral with a crisp #16 requirement. Verified myself on tip `8335ace`: 292/292 unit, clean build, 17/17 e2e. Conditions for the TM at merge time (not on the Dev): resolve the events-jsonl conflict as union and confirm the resulting CI run green (F1/F4). File F2 (noshow emitter-or-drop) and the patron_joined client beacon into #16.
