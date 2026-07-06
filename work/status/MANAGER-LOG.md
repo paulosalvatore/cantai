@@ -29,3 +29,10 @@
 - PO (fable) dispatched to convert backlog #6-#12 + TICKET-18 into buildable parallel tickets with file-ownership boundaries and wave grouping (branch ticket/19-pmf-wave-tickets), so the dev wave launches the moment PR #4 merges.
 - Wave-1 dev fan-out (opus devs) planned immediately post-PR#4-merge; TICKET-2 (Vercel verify) runs on the merge itself.
 - Standing needs-user: YouTube Data API key (blocks TICKET-8 search only).
+
+## 2026-07-05 — PR #4 MERGED: first public deploy + wave 1 launched
+
+- PR #4 merged after the full chain: App Tester PASS → Security PASS-WITH-NOTES (4 MEDIUMs fixed) → sonnet APPROVE (CI node-22 blocker fixed) → opus REQUEST-CHANGES (caught RED Vercel deploy: missing framework preset; fixed via vercel.json; honesty wording on per-lambda queue divergence) → opus APPROVE with a bounded CI exception (GitHub billing broken account-wide, [needs-user]; suite triple-verified on merge SHA; condition: verify first green CI on main post-billing-fix).
+- Vercel preview verified GREEN pre-merge; production deploy of main auto-building; TICKET-2 verification agent dispatched (live URL + e2e + README record).
+- Wave 1 launched in parallel worktrees: TICKET-6 persistence (opus), TICKET-8 search (opus), TICKET-18 TV fullscreen (fable, design-system-bound).
+- API weather note: repeated agent stalls/drops this stretch; all recovered from disk state, one reviewer replaced with a fresh agent.
