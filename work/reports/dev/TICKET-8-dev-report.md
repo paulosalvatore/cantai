@@ -61,6 +61,18 @@ Modified:
 5. Debounced (400ms/3-char) + rate-limited (6th rapid req/uuid → 429) — ✅ (unit tests for the limiter + route 429).
 6. Quota-exceeded renders the degraded state, not a crash — ✅ (unit maps 403 quota → `YouTubeQuotaError` → degraded; e2e degraded path).
 
+## Security-gate follow-up (PASS-WITH-NOTES → folded, 2026-07-05)
+
+Cyber Security's 2 MEDIUMs + 1 LOW (PR #8 comment 4888241361) addressed — all quota-abuse hardening for when the live key ships:
+
+1. **MEDIUM — uuid-only rate limit bypassable by rotation → dual uuid+IP buckets.** `rateLimitOk(uuid, ip)` now charges BOTH a per-uuid bucket (5/10s) and a per-IP bucket (30/10s, generous because a whole bar shares one venue IP/NAT — the documented tradeoff: one hot venue can burn ≤30 searches/window, but unbounded uuid rotation from one host is capped at the same ceiling). Route extracts the IP from the `x-forwarded-for` first hop (Vercel-normalized) with `x-real-ip` fallback; the IP bucket is charged even when the uuid bucket already tripped, so rotation can't dodge the accounting.
+2. **MEDIUM — unbounded `hits` Map heap growth under uuid churn → capped LRU.** Same pattern as the query cache: total tracked buckets capped at 2000, oldest-touched evicted first (delete+re-set LRU touch on every access). IP buckets are constantly re-touched so they're effectively never the eviction victim.
+3. **LOW — uuid param used as a map key without a length cap → strict shape validation.** `uuid` must be UUID-shaped (36-char) or the literal `anon` (pre-boot client); anything else (incl. oversized values) → 400 before touching any server state.
+
+New unit tests (10): rotating-uuid capped by the IP bucket (lib + route via header), shared-venue-IP headroom, bucket map bounded under 2× cap churn, oldest-first eviction, no-IP fallback, `x-real-ip` fallback, oversized/malformed uuid → 400, `anon`/absent uuid accepted.
+
+**Re-verification (real output):** `npm test` → `Test Suites: 5 passed · Tests: 81 passed, 81 total` (71 → 81). `npm run build` → `✓ Compiled successfully`, `/api/search` still dynamic. Bundle grep for key/API still clean (change is server-side only).
+
 ## Needs-user (W7)
 
 - **YouTube Data API v3 key** — Google Cloud: enable "YouTube Data API v3", create an API key, restrict to that API + server/Vercel referrers → set as `YOUTUBE_API_KEY` in Vercel env + local `.env`. Buildable/testable without it; gates the **live** search verification only.

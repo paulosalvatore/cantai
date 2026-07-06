@@ -16,6 +16,7 @@ import {
   _resetCache,
   rateLimitOk,
   _resetRateLimit,
+  _rateBucketCount,
   RATE_LIMIT,
 } from "@/lib/youtube-search";
 
@@ -211,27 +212,79 @@ describe("query cache", () => {
   });
 });
 
-describe("rate limiter", () => {
+describe("rate limiter (dual bucket: uuid + IP)", () => {
   beforeEach(() => _resetRateLimit());
 
-  it(`allows ${RATE_LIMIT.max} requests then rejects the next`, () => {
+  it(`allows ${RATE_LIMIT.max} requests then rejects the next (uuid bucket)`, () => {
     const now = 10_000;
     for (let i = 0; i < RATE_LIMIT.max; i++) {
-      expect(rateLimitOk("uuid-1", now)).toBe(true);
+      expect(rateLimitOk("uuid-1", "1.2.3.4", now)).toBe(true);
     }
-    expect(rateLimitOk("uuid-1", now)).toBe(false); // 6th within the window
+    expect(rateLimitOk("uuid-1", "1.2.3.4", now)).toBe(false); // 6th within the window
   });
 
-  it("isolates buckets per uuid", () => {
+  it("isolates buckets per uuid (distinct IPs)", () => {
     const now = 10_000;
-    for (let i = 0; i < RATE_LIMIT.max; i++) rateLimitOk("uuid-1", now);
-    expect(rateLimitOk("uuid-2", now)).toBe(true);
+    for (let i = 0; i < RATE_LIMIT.max; i++) rateLimitOk("uuid-1", "1.1.1.1", now);
+    expect(rateLimitOk("uuid-2", "2.2.2.2", now)).toBe(true);
   });
 
   it("recovers after the window slides", () => {
     const now = 10_000;
-    for (let i = 0; i < RATE_LIMIT.max; i++) rateLimitOk("uuid-1", now);
-    expect(rateLimitOk("uuid-1", now)).toBe(false);
-    expect(rateLimitOk("uuid-1", now + RATE_LIMIT.windowMs + 1)).toBe(true);
+    for (let i = 0; i < RATE_LIMIT.max; i++) rateLimitOk("uuid-1", "1.2.3.4", now);
+    expect(rateLimitOk("uuid-1", "1.2.3.4", now)).toBe(false);
+    expect(rateLimitOk("uuid-1", "1.2.3.4", now + RATE_LIMIT.windowMs + 1)).toBe(true);
+  });
+
+  it("works with no IP available (uuid bucket only)", () => {
+    const now = 10_000;
+    for (let i = 0; i < RATE_LIMIT.max; i++) expect(rateLimitOk("uuid-1", "", now)).toBe(true);
+    expect(rateLimitOk("uuid-1", "", now)).toBe(false);
+  });
+
+  it("caps rotating uuids from one IP at the IP bucket (MEDIUM #1)", () => {
+    const now = 10_000;
+    // Rotate a fresh uuid every request from the same IP: each uuid bucket is
+    // fresh, so only the IP bucket can stop the rotation.
+    for (let i = 0; i < RATE_LIMIT.ipMax; i++) {
+      expect(rateLimitOk(`rotated-${i}`, "9.9.9.9", now)).toBe(true);
+    }
+    expect(rateLimitOk("rotated-next", "9.9.9.9", now)).toBe(false); // IP bucket trips
+    // A different IP is unaffected.
+    expect(rateLimitOk("rotated-other", "8.8.8.8", now)).toBe(true);
+  });
+
+  it("shared venue IP: distinct patrons under one IP fit within the generous IP bucket", () => {
+    const now = 10_000;
+    // 6 patrons × 5 searches = 30 = RATE_IP_MAX — all allowed.
+    for (let p = 0; p < 6; p++) {
+      for (let i = 0; i < RATE_LIMIT.max; i++) {
+        expect(rateLimitOk(`patron-${p}`, "10.0.0.1", now)).toBe(true);
+      }
+    }
+    // The 31st request from that IP trips the IP bucket.
+    expect(rateLimitOk("patron-7", "10.0.0.1", now)).toBe(false);
+  });
+
+  it("bounds the tracked-bucket map under uuid churn (MEDIUM #2)", () => {
+    const now = 10_000;
+    // Mint far more uuids than the cap; spread over many IPs so the IP bucket
+    // never rejects (we're testing memory, not limiting).
+    const total = RATE_LIMIT.bucketsMax * 2;
+    for (let i = 0; i < total; i++) {
+      rateLimitOk(`churn-${i}`, `10.${i % 200}.${(i >> 8) % 200}.7`, now);
+    }
+    expect(_rateBucketCount()).toBeLessThanOrEqual(RATE_LIMIT.bucketsMax);
+  });
+
+  it("evicts oldest-touched buckets first when over the cap", () => {
+    const now = 10_000;
+    for (let i = 0; i < RATE_LIMIT.bucketsMax + 10; i++) {
+      rateLimitOk(`evict-${i}`, "", now);
+    }
+    // The earliest uuid was evicted, so it gets a fresh window (allowed again
+    // even after RATE_MAX hits would normally accumulate — single hit here).
+    expect(_rateBucketCount()).toBeLessThanOrEqual(RATE_LIMIT.bucketsMax);
+    expect(rateLimitOk("evict-0", "", now)).toBe(true); // fresh bucket after eviction
   });
 });

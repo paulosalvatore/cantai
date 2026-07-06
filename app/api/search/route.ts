@@ -18,18 +18,47 @@ import {
  * Response contract (all non-throwing so the client fails soft to paste-link):
  *   200 { results: SearchResult[] }                    — success
  *   200 { degraded: true, reason, results: [] }        — no key / quota / upstream error
- *   400 { error }                                      — bad query (too short/long/missing)
- *   429 { error }                                      — per-uuid rate limit exceeded
+ *   400 { error }                                      — bad query or malformed uuid
+ *   429 { error }                                      — per-uuid OR per-IP rate limit exceeded
  */
 
 const MIN_QUERY = 3;
 const MAX_QUERY = 100;
+// LOW #3 (PR #8 security gate): the uuid is used as a rate-limit map key, so
+// cap its shape strictly (36-char UUID) before it touches any server state.
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Caller IP for the rate-limit bucket (MEDIUM #1). On Vercel the first hop of
+ * x-forwarded-for is the client IP (the platform sets/normalizes the header);
+ * x-real-ip is the fallback. "" when neither is present (local unit tests).
+ */
+function clientIp(req: NextRequest): string {
+  const xff = req.headers.get("x-forwarded-for");
+  if (xff) {
+    const first = xff.split(",")[0]?.trim();
+    if (first) return first;
+  }
+  return req.headers.get("x-real-ip")?.trim() ?? "";
+}
 
 export async function GET(req: NextRequest) {
   // Parse from req.url (works with a plain Request in unit tests too).
   const params = new URL(req.url).searchParams;
   const q = (params.get("q") ?? "").trim();
-  const uuid = (params.get("uuid") ?? "").trim() || "anon";
+  const rawUuid = (params.get("uuid") ?? "").trim();
+
+  // Validate the uuid BEFORE using it as a map key: absent or the literal
+  // "anon" (pre-boot client) → "anon"; anything else that is not UUID-shaped
+  // (incl. oversized values) → 400.
+  if (rawUuid && rawUuid !== "anon" && !UUID_RE.test(rawUuid)) {
+    return NextResponse.json(
+      { error: "uuid must be a valid UUID" },
+      { status: 400 },
+    );
+  }
+  const uuid = rawUuid || "anon";
 
   if (q.length < MIN_QUERY) {
     return NextResponse.json(
@@ -44,8 +73,9 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  // Per-uuid rate limit (quota hygiene) — reject politely, keep paste-link working.
-  if (!rateLimitOk(uuid)) {
+  // Dual rate limit (quota hygiene): per-uuid AND per-IP — rotating uuids from
+  // one host is capped by the IP bucket. Reject politely; paste-link keeps working.
+  if (!rateLimitOk(uuid, clientIp(req))) {
     return NextResponse.json(
       { error: "Muitas buscas — aguarde um instante e tente de novo." },
       { status: 429 },

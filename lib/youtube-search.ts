@@ -242,28 +242,66 @@ export function _resetCache(): void {
 }
 
 // ---------------------------------------------------------------------------
-// Per-uuid sliding-window rate limiter (quota hygiene; best-effort per instance).
-// Allow RATE_MAX requests per RATE_WINDOW_MS; the (RATE_MAX+1)th is rejected.
+// Dual-bucket sliding-window rate limiter (quota hygiene; best-effort per instance).
+//
+// Security (PR #8 gate, MEDIUM #1): the uuid alone is client-controlled — an
+// abuser bypasses a uuid-only limit by rotating uuids. We therefore limit on
+// BOTH the uuid AND the caller IP; whichever bucket trips first rejects.
+// The IP bucket is deliberately generous (RATE_IP_MAX) because a whole bar
+// shares one venue IP/NAT — tradeoff: a single hot venue can legitimately
+// burn up to RATE_IP_MAX searches per window (acceptable quota exposure),
+// while unbounded uuid rotation from one host is capped at the same ceiling.
+//
+// MEDIUM #2: the bucket map is CAPPED (same LRU pattern as queryCache) —
+// uuid keys are attacker-minted, so an unbounded Map grows the heap under
+// rotation. Oldest-touched buckets evict first past RATE_BUCKETS_MAX; worst
+// case an evicted rotator gets a fresh uuid window, but the IP bucket (one
+// key per host, constantly re-touched so effectively never the LRU victim)
+// still holds the line.
 // ---------------------------------------------------------------------------
 
-const RATE_MAX = 5;
+const RATE_MAX = 5; // per-uuid requests per window
+const RATE_IP_MAX = 30; // per-IP requests per window (shared venue-IP headroom)
 const RATE_WINDOW_MS = 10_000;
+const RATE_BUCKETS_MAX = 2000; // cap on total tracked buckets (uuid + ip keys)
 const hits = new Map<string, number[]>();
 
-/**
- * Returns true if the request is allowed (and records it), false if the caller
- * has exceeded RATE_MAX within the window.
- */
-export function rateLimitOk(uuid: string, now = Date.now()): boolean {
+/** Check-and-record one bucket. Returns false when the bucket is at/over `max`. */
+function bucketOk(key: string, max: number, now: number): boolean {
   const windowStart = now - RATE_WINDOW_MS;
-  const recent = (hits.get(uuid) ?? []).filter((t) => t > windowStart);
-  if (recent.length >= RATE_MAX) {
-    hits.set(uuid, recent); // keep the pruned window
+  const recent = (hits.get(key) ?? []).filter((t) => t > windowStart);
+  // LRU touch: delete + re-set moves the key to the Map's insertion-order tail.
+  hits.delete(key);
+  if (recent.length >= max) {
+    hits.set(key, recent); // keep the pruned window
     return false;
   }
   recent.push(now);
-  hits.set(uuid, recent);
+  hits.set(key, recent);
   return true;
+}
+
+/** Evict oldest-touched buckets past the cap (heap-growth guard, MEDIUM #2). */
+function evictOverflow(): void {
+  while (hits.size > RATE_BUCKETS_MAX) {
+    const oldest = hits.keys().next().value;
+    if (oldest === undefined) break;
+    hits.delete(oldest);
+  }
+}
+
+/**
+ * Returns true if the request is allowed (and records it in both buckets),
+ * false when EITHER the uuid bucket or the IP bucket exceeds its window.
+ * `ip` may be "" when unavailable (then only the uuid bucket applies).
+ */
+export function rateLimitOk(uuid: string, ip = "", now = Date.now()): boolean {
+  const uuidOk = bucketOk(`u:${uuid}`, RATE_MAX, now);
+  // Evaluate (and charge) the IP bucket even when the uuid bucket already
+  // tripped, so rotating uuids can't dodge the IP window's accounting.
+  const ipOk = ip ? bucketOk(`ip:${ip}`, RATE_IP_MAX, now) : true;
+  evictOverflow();
+  return uuidOk && ipOk;
 }
 
 /** Test helper — clear rate-limit state. */
@@ -271,4 +309,14 @@ export function _resetRateLimit(): void {
   hits.clear();
 }
 
-export const RATE_LIMIT = { max: RATE_MAX, windowMs: RATE_WINDOW_MS };
+/** Test helper — current number of tracked buckets. */
+export function _rateBucketCount(): number {
+  return hits.size;
+}
+
+export const RATE_LIMIT = {
+  max: RATE_MAX,
+  ipMax: RATE_IP_MAX,
+  windowMs: RATE_WINDOW_MS,
+  bucketsMax: RATE_BUCKETS_MAX,
+};
