@@ -1,7 +1,7 @@
 # TICKET-1 — Dev report
 
 ## Status
-REVIEW FINDINGS ADDRESSED — Reviewer blocker (CI node-version 20→22) + 2 nits fixed; build green, 39 unit tests pass, 1 Playwright e2e passes, next@15.5.20. App Tester PASS + Cyber Security PASS-WITH-NOTES recorded on PR #4; awaiting re-review.
+OPUS D-022 FINDINGS ADDRESSED — vercel.json framework preset added (verifying Vercel preview check), in-memory-store divergence honestly documented (footer/README/JSDoc); build green, 39 unit tests pass. Awaiting opus re-verdict on PR #4.
 
 ## Context
 - Worktree: `/Users/paulosalvatore/Documents/GitHub/cantai/.worktrees/ticket-1`
@@ -101,6 +101,15 @@ Sonnet review REQUEST-CHANGES (https://github.com/paulosalvatore/cantai/pull/4#i
 - **NIT-2:** `isValidVideoId` exported from `lib/youtube.ts` and reused in `app/api/queue/route.ts` (duplicated `VIDEO_ID_RE` regex removed).
 
 Re-verification (real output): `npm run build` ✓ clean; `npm test` ✓ 39/39 (3 suites); `npm run test:e2e` ✓ 1 passed (5.4s); dev server stopped after.
+
+### 2026-07-05 opus D-022 findings addressed (deploy + honesty)
+
+Opus review REQUEST-CHANGES (https://github.com/paulosalvatore/cantai/pull/4#issuecomment-4888072497):
+
+1. **Vercel deploy check RED** (`No Output Directory named "public" found` — project Framework Preset not set to Next.js). Durable in-repo fix: added `vercel.json` with `{ "framework": "nextjs" }` at repo root. Watching the PR's Vercel preview check after push; will report the exact error if it stays red for a project-side reason the repo can't fix.
+2. **Honest divergence wording** — the in-memory store is per-lambda-instance on Vercel, so hosted queues can DIVERGE between concurrent users, not just reset. Reworded: patron footer (`app/page.tsx` — "Early-access prototype — queues may reset or differ between devices until persistent storage ships"), README limitation bullet (precise: per-instance copies, divergence, instance recycling), `lib/store.ts` JSDoc (local vs serverless behavior spelled out).
+
+E2E selectors unaffected by the footer text change (checked spec — none reference footer text). Re-verification: `npm run build` ✓ clean; `npm test` ✓ 39/39.
 
 ## Friction
 - Node.js 25 `localStorage` global (stub without methods) causes Next.js 15 SSR failures for client components that access localStorage. Workaround: `--localstorage-file` flag. Candidate for a framework-level dev environment note (future inbox item if recurring across products).

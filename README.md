@@ -36,7 +36,7 @@ The Playwright e2e test automatically starts the dev server on port 3040 if not 
 
 ## Prototype limitations
 
-- **Queue resets on server restart** — state is stored in memory only. Database persistence is a later-ticket item.
+- **Queue state is in-memory only — it can reset AND diverge.** Locally, the queue resets on server restart. On the hosted (Vercel) version, each serverless instance holds its own copy of the queue, so concurrent users may see *different* queues, and any queue can vanish when an instance is recycled. Persistent shared storage (database) is a later-ticket item; until it ships, treat hosted queues as best-effort.
 - **Single room** — one shared queue for the whole venue. Multi-room / venue codes are scope-out.
 - **No YouTube search** — patrons paste a YouTube URL (full, short, shorts, embed formats all supported). YouTube Data API text search requires an API key (needs-user item for a future ticket).
 - **No auth / persistence / payments** — prototype phase.

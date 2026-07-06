@@ -308,7 +308,7 @@ export default function PatronPage() {
       <footer style={{ marginTop: "3rem", color: "var(--text-muted)", fontSize: "0.75rem", textAlign: "center" }}>
         <a href="/tv" target="_blank">Venue screen ↗</a>
         {" · "}
-        <span>Prototype — queue resets on server restart</span>
+        <span>Early-access prototype — queues may reset or differ between devices until persistent storage ships</span>
       </footer>
     </main>
   );

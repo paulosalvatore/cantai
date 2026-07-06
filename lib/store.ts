@@ -1,8 +1,12 @@
 /**
  * In-memory queue store — module-level singleton.
  *
- * PROTOTYPE LIMITATION: state is lost on server restart. No persistence yet.
- * Database / Redis persistence is a later-ticket concern.
+ * PROTOTYPE LIMITATION: state is per-process and per-instance.
+ * - Locally: the queue is lost on server restart.
+ * - On serverless hosting (Vercel): each lambda instance holds its OWN copy of this
+ *   module, so concurrent requests routed to different instances see DIVERGING queues,
+ *   and any instance recycle silently drops its queue.
+ * Persistent shared storage (database / Redis) is a later-ticket concern.
  *
  * Single default room for v0 (room concept is reserved for future multi-venue support).
  */
