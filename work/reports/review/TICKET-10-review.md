@@ -138,3 +138,56 @@ All eight implemented, test-covered, and demonstrated via App Tester.
 **[reviewer] APPROVE — TICKET-10 is correctly implemented and ready to merge.**
 
 Evidence base: 325/325 app tests + 59/59 engine tests verified independently on tip `d3b213c`; CI green (Vercel + build-and-test); App Tester PASS (10 screenshots, all ACs demonstrated); Security PASS post-remediation (MEDIUM-1 fixed and spy-verified, INFO-1 fixed, MEDIUM-2 documented, LOW-1 filed). A1–A6 reconciliation verified in code; adapter boundary clean; relay race acknowledged and not worse than the accepted store R-M-W class; UI copy verbatim from design mockup; TV 30s mic-call is in-scope. Two NITs (stale comment, unchecked addEntry return) are non-blocking.
+
+---
+
+## Opus merge-counting pass (D-022 second pass) — 2026-07-06
+
+Reviewer agent, opus tier. Independent re-verification on the **fetched remote tip `28cf836`** (= `origin/ticket/10-rotation-modes`; the sonnet pass reviewed `d3b213c`, the code tip — the delta since is only the sonnet review report + event-log auto-commits, no product code). Re-ran locally: **jest 23 suites / 325 tests pass; engine `node --test` 59/59 pass; `npm run build` clean; `gh pr checks 14` terminal-green** (Vercel pass + build-and-test pass). Engine consumers grepped: the ONLY importer of `@cantai/rotation-engine` in `app/`/`lib/`/`components/` is `lib/rotation.ts` (the adapter, new in this PR) — so there are **no already-merged engine consumers to regress** (verified, not assumed). This pass adds the product-judgment layer on top of the sonnet structural pass.
+
+### J1 — THE LOST-SUBMIT RACE (the judgment that matters): ruling = ACCEPTABLE-WITH-FOLLOW-UP
+
+**Precise mechanic.** The POST flow is already **append-then-relay**: `store.addEntry` (atomic RPUSH, entry durable) at `route.ts:168` runs BEFORE `relayQueue` at `route.ts:179`. So the submitter's OWN entry is durably stored ahead of any rewrite. The residual loss is of a **concurrent** submitter's entry, via the classic snapshot lost-update in `relayQueue` (`rotation.ts:221-226`):
+
+```
+R1 addEntry(A)                     store=[…,A]
+R1 relay.getQueue → S1=[…,A]       (B not yet present)
+R2 addEntry(B)                     store=[…,A,B]   (B durably in, 201 sent to B)
+R2 relay.getQueue → S2=[…,A,B]
+R2 relay.rewrite(order(S2))        store=[ordered A,B]
+R1 relay.rewrite(order(S1))        store=[ordered …,A]   ← B GONE (permanent, does NOT self-heal)
+```
+
+`UpstashStore.rewriteKey` is `del` + `rpush` (non-atomic, no WATCH/CAS), so a second flavor exists between del and rpush; the durable-loss case is the snapshot overwrite above. Unlike **misordering** (self-heals on the next relay), a lost submit is permanent and patron-visible: they saw "✓ Song added" and their song silently vanished.
+
+**Does the prompt's hypothesized "one extra read / append-then-relay" fix eliminate it? No** — and this is the load-bearing finding. Append-then-relay is *already* the ordering; it protects the submitter's own entry against its own relay, but does nothing against a concurrent request's stale rewrite clobbering it. A post-rewrite verification read by R1 also cannot recover B: R1 never knew B existed, so re-reading its own write reveals nothing. The only *complete* fixes are (a) an atomic compare-and-set rewrite (Redis `WATCH`/Lua that aborts+retries the relay if the list changed under the snapshot), or (b) dropping relay-on-submit entirely (GET already renders effective order via `orderQueue`, so stored order is only consumed by `advance`/`nowPlaying`) and relaying only on mode-switch/advance — but (b) needs relay-before-advance, which is a behavioral refactor and still leaves a rarer advance-time window. **Neither is a one-liner.**
+
+**Quantified window** (Upstash REST from Vercel, typical same-region 10–30 ms/RTT): `relayQueue` = getQueue (1 RTT) + compute (<1 ms for ≤200 entries) + rewrite (del+rpush = 2 RTTs) ≈ 3 RTTs ≈ 30–90 ms; R1's vulnerable getQueue→rewrite-commit window ≈ 2 RTTs ≈ 20–60 ms. For permanent loss, R2 must land BOTH its addEntry and its rewrite inside R1's window AND R1 must be the last writer — realistically the two POSTs must arrive within ~10–40 ms of each other. **Probability:** at an average busy-bar submit rate of ~0.1–0.5/min a Poisson estimate gives ~1 lost submit per ~50 busy nights; but real submits are **bursty** (a table of four all scanning the QR and submitting within ~2 s), which concentrates the risk into exactly those bursts → order **~0.1–0.3 lost submits per busy night** in the bursty moments. Rare, **recoverable** (re-submit works — the lost entry isn't in the queue, so caps don't block it), no data corruption, no crash, no security exposure.
+
+**Why acceptable-with-follow-up rather than block-now:** (1) the read-modify-write lost-update class is **pre-existing** — `removeEntry` and `reorder` in `upstash.ts` are already del+rpush with the identical window; the security gate explicitly accepted it. TICKET-10 adds one higher-frequency trigger but does not invent the class. (2) The proper fix (atomic WATCH/Lua CAS on the store's RMW ops) closes the *whole* class at once and deserves its own tested ticket — bolting it onto the final PMF feature merge under time pressure is disproportionate and riskier than shipping. (3) Loss is rare, recoverable, and non-corrupting. → **Filed as a REQUIRED HIGH-priority fast-follow** (see Follow-ups); not a merge blocker.
+
+### J2 — Fairness explainability (product judgment): PASS
+
+Walked a realistic night (per-table-2, cap=4, latecomers, grandfathering). Ordering is deterministic and rule-stated: `roundRobin` emits the least-recently-served bucket's head, ties broken by grace-then-submittedAt. A host CAN answer "why is she before me?" — "the queue alternates between tables and her table sang less recently than yours" (or "she's a different table, so you two trade turns"). Grandfathering after a mid-night switch can leave one table holding 4 while others hold 0, but round-robin still gives that table only one turn per round — explainable, not a jump-the-line. Grace-requeue is explainable ("she was a no-show, forgiven once, re-queued at the front of her own group — she never leapfrogs a group with less credit"). The README's plain-language tables back each rule verbatim. The explainability claim holds.
+
+### J3 — Mode-switch UX on the live product: ALREADY SATISFIED (no new work needed)
+
+The prompt's hypothesized "one-line modo mudou notice" is **already implemented**: `PatronRoom.tsx:90-99` sets `Fila reordenada — modo mudou para {modeLabel}` (5 s `role="status"` toast, `data-testid="reorder-toast"`) on a live mode change, gated to skip first load; plus a persistent `Modo: {label}` hint (`patron-mode-hint`, lines 312-319). `TvScreen.tsx` carries the equivalent. App Tester evidence `04-patron-reorder-toast.png` + `09/10-midqueue-before/after-switch.png` confirm. A position jump therefore reads as an announced rule change, not a bug. No action required.
+
+### J4 — Engine amendments (12 new tests) coherence: PASS
+
+The engine grew from 47 → 59 tests. New tests cover the A1–A5 spec-alignment + no-show grace lifecycle + mode-switch-loses-nobody + persisted consecutive-listen cap across advances. No semantics regression for prior consumers because **there are none** — grep confirms `lib/rotation.ts` is the sole importer, introduced in this same PR. The app configures `maxConsecutiveListen: 0` (spec A3) via the adapter while the engine's `DEFAULT_OPTIONS` stays `1` for library ergonomics; the adapter always passes the explicit `0`, so the two are coherent, not conflicting.
+
+### Opus-pass findings (in addition to sonnet NIT-1/NIT-2)
+
+Both sonnet NITs stand (stale module header comment `rotation.ts:13` still says "using only the frozen `reorder` op"; unchecked `addEntry` return in the grace path). Neither blocks. No new blocking finding.
+
+### Follow-ups (file as tickets; do NOT block this merge)
+
+- **[HIGH] Atomic store RMW to close the lost-update class.** Make `UpstashStore.rewrite`/`removeEntry`/`reorder` atomic w.r.t. concurrent `addEntry` — Redis `WATCH` optimistic transaction or a Lua script that aborts+retries the relay if the queue changed under the read snapshot. Closes the concurrent-submit silent-loss window (J1) and the pre-existing host-op races in one change. Add a concurrency regression test.
+- **[LOW] NIT-1 / NIT-2** (already filed by sonnet pass): fix the stale `rotation.ts:13` module comment; add a defensive check on the grace-path `addEntry` return.
+- **[LOW] `patronUuid` on public GET → griefing lockout** (carried from Security re-audit): out of scope here.
+
+### Opus verdict
+
+**[reviewer] APPROVE (opus merge-counting pass).** Every gate is green and independently re-verified on the merge tip `28cf836` (325 + 59 + build + CI). The four judgment questions resolve cleanly: the lost-submit race is a rare, recoverable, non-corrupting instance of a pre-existing accepted RMW class whose proper fix (atomic CAS) is a self-contained HIGH follow-up, not a blocker for the final PMF feature; fairness is host-explainable; mode-switch UX already communicates the reorder; the engine amendments are coherent with zero prior consumers to regress. This is a clean, well-tested integration. TM may merge and file the HIGH atomic-RMW follow-up.
