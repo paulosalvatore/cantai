@@ -1,6 +1,6 @@
 # cantai — Board
 
-_Last updated: 2026-07-06 (PRs #8/#9 approved+merging; wave 2 building)_
+_Last updated: 2026-07-06 (WAVE 1 COMPLETE — 9 PRs merged; wave 2 building)_
 
 ## Needs user (TL)
 
@@ -34,5 +34,5 @@ _Last updated: 2026-07-06 (PRs #8/#9 approved+merging; wave 2 building)_
 | TICKET-5 | Roadmap + specs (modes/feedback/monetization) | DONE | PR #1 merged (Reviewer APPROVE after B1/B2 fixes; opus-skip recorded, docs-only) |
 | TICKET-19 | PMF wave ticket batch | DONE | PR #5 merged (Reviewer APPROVE after B1 wave-dependency fix; opus-skip, docs-only). Tickets 6-12+18 armed in waves |
 | TICKET-2 | Deploy verification | DONE | PR #6 merged. LIVE: https://cantai-snowy.vercel.app (cantai.vercel.app was name-squatted). All prod e2e checks PASS |
-| TICKET-8 | YouTube search (wave 1) | MERGING | Full chain green (opus APPROVE w/ quota-disclosure condition on key provisioning); .env.example concat in flight |
-| TICKET-18 | TV fullscreen + bigger type (wave 1) | MERGING | Full chain green (opus all-night-reliability audit clean); event-log union in flight |
+| TICKET-8 | YouTube search (wave 1) | DONE | PR #8 merged (123/123 on merged tree). Live search activates on key + quota plan |
+| TICKET-18 | TV fullscreen + bigger type (wave 1) | DONE | PR #9 merged (opus all-night-reliability audit clean) |
