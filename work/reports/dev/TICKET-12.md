@@ -68,3 +68,15 @@ All 3 MEDIUMs + 2 LOWs from `work/reports/security/TICKET-12-security.md` resolv
 - **L2 (sessionKey shape):** `SESSION_KEY_RE = [A-Za-z0-9._-]{1,64}` enforced at the route (400 on mismatch).
 
 Verification after fixes: `npm test` — **Test Suites: 15 passed, Tests: 243 passed** (+10 new: rate-limit trip → silent 204 + IP-bucket rotation cap + session isolation; escaping golden test with `|`/newline payloads + escapeCell unit; TTL-on-first-write via FakeRedis expire recording; memory cap ×2; sessionKey/roomId charset rejections). `npm run build` — ✓.
+
+## CI-verified-green (S1 contract, post-security-fixes)
+
+Verbatim `gh pr checks 12` at `e0e30ee`:
+
+```
+Vercel	pass	0	https://vercel.com/paulosalvatores-projects/cantai/9trVxKvfhCh9NMoratZ9wDWDBAAZ	Deployment has completed
+Vercel Preview Comments	pass	0	https://vercel.com/github	
+build-and-test	pass	1m33s	https://github.com/paulosalvatore/cantai/actions/runs/28798699298/job/85395921264	
+```
+
+All required checks terminal-green. Earlier conflicting-PR state (append-only `work/events/2026-07.jsonl` vs main) resolved via merge `f152db8` (events = union; `.env.example` = main first + telemetry section appended; branch files unchanged).
