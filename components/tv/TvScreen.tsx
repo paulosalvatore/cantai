@@ -364,7 +364,7 @@ export default function TvScreen({
               <h1 className={styles.hero} data-testid="tv-hero">
                 {nowPlaying.title ?? `youtu.be/${nowPlaying.videoId}`}
               </h1>
-              <div className={styles.singer}>
+              <div className={styles.singer} data-testid="tv-singer">
                 🎤 {singerLine(nowPlaying)}
                 {nowPlaying.table ? (
                   <span className={styles.mesa}> · Mesa {nowPlaying.table}</span>
