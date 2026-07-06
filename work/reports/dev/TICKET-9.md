@@ -1,6 +1,6 @@
 # TICKET-9 — Dev Report (multi-room + QR join + table capture)
 
-- **Status:** implemented; local build + full unit suite green; e2e run pending in this session. Draft PR opened.
+- **Status:** implemented; build + full unit suite (220) + full e2e (14) green locally; evidence captured. Draft PR #13 open; awaiting CI-green confirmation before requesting the App Tester gate.
 - **Branch:** `ticket/9-rooms-qr` · worktree `.worktrees/ticket-9` · app port **3013**.
 - **Product:** cantai (public repo).
 
@@ -33,8 +33,9 @@ No `.env.example` change (rooms add no env; QR uses `window.location.origin`).
 
 - **Build:** `npm run build` → ✓ compiled, 18 routes generated (incl. `/[room]`, `/[room]/admin`, `/[room]/tv`, `/new`, `/api/rooms`, legacy `/tv` & `/admin` redirects).
 - **Unit:** `npm test` → **220 passed / 14 suites** (adds rooms, api-rooms, api-queue-rooms; host-auth/host-api updated for async + per-room).
-- **e2e:** `PORT=3013 npm run test:e2e` — see PR thread for the run output.
-- **CI:** the required build-and-test run must be terminal-green before gates — pasted in the PR thread.
+- **e2e:** `PORT=3013 npm run test:e2e` → **14 passed / 14** (serial; adds `rooms.spec.ts`, repoints legacy specs to `/default*`). Pinned `workers: 1` — the in-memory store/rooms singletons live in one Next dev process and reset on each route's first compile; parallel workers raced those resets and wiped seeded state. `rooms.spec` warms the room routes before creating rooms.
+- **Evidence:** `work/evidence/ticket-9/` (8 shots: landing, /new, room-created QR+host-code, patron mobile join+queue 390px, room TV playing w/ Mesa 7 + room QR, room admin gate, second empty room TV).
+- **CI:** the required build-and-test run must be terminal-green before gates — `gh pr checks 13` output pasted in the PR thread.
 
 ## Scope-out / follow-ups (as ticketed in the spec)
 

@@ -1,6 +1,7 @@
 # TICKET-9 — Plan (multi-room + QR join + table capture)
 
 - **Status:** self-approved under autonomous delegation (spawned Dev, full ticket brief from TM). Record-only.
+- **APPROVED-BY:** auto-approved (no plan-gate escalation) — validated downstream by gates + TL merge of PR #13.
 - **Branch:** `ticket/9-rooms-qr` · worktree `.worktrees/ticket-9` · app port 3013.
 
 ## Approach
