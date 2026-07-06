@@ -125,6 +125,14 @@ describe("GET /api/feedback — admin watermark read", () => {
     expect((await GET(adminReq("GET", { token: "wrong" }))).status).toBe(401);
   });
 
+  it("rejects a same-length wrong token (401) — timing-safe compare path", async () => {
+    process.env.FEEDBACK_ADMIN_TOKEN = ADMIN_TOKEN;
+    // Same byte length as ADMIN_TOKEN, different content → exercises timingSafeEqual.
+    const sameLenWrong = "x".repeat(ADMIN_TOKEN.length);
+    expect(sameLenWrong).toHaveLength(ADMIN_TOKEN.length);
+    expect((await GET(adminReq("GET", { token: sameLenWrong }))).status).toBe(401);
+  });
+
   it("returns items + watermark with a valid token", async () => {
     process.env.FEEDBACK_ADMIN_TOKEN = ADMIN_TOKEN;
     await POST(postReq({ sentiment: "love", context: { uuid: VALID_UUID, route: "/", role: "patron" } }));

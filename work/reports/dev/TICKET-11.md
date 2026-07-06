@@ -1,6 +1,6 @@
 # Dev Report — TICKET-11: in-app feedback widget
 
-- **Status:** IMPLEMENTED — build green, 105/105 unit tests green, 3/3 e2e green (incl. 2 new), evidence captured. Draft PR opening.
+- **Status:** IMPLEMENTED + security gate M1 folded — build green, **106/106** unit tests green, 3/3 e2e green, evidence captured. PR #11 open, Security PASS-WITH-NOTES.
 - **Branch:** `ticket/11-feedback-widget` · **Worktree:** `.worktrees/ticket-11` · **Port:** 3011
 - **Product:** cantai · **Wave:** 2 (parallel with TICKET-7 host controls, PRs #8/#9)
 - **Author:** Dev agent · **Date:** 2026-07-05
@@ -61,7 +61,14 @@ Contextual micro-prompts (after first song / after host session end) are marked 
 
 CI billing is known-broken for this repo; the `gh pr checks` verbatim-green contract can't be satisfied via CI right now. All gates verified locally with real command output (pasted above / in PR). Flagging for the TM per the known-CI-broken condition.
 
+## Security gate (2026-07-05) — PASS-WITH-NOTES, M1 folded
+
+- **M1 (MEDIUM, fixed):** admin token comparison in `app/api/feedback/route.ts` used `===` (timing side-channel). Replaced with `crypto.timingSafeEqual` over equal-length UTF-8 Buffers, length-mismatch rejected up front (leaks only length, never contents — fine for a long random secret). Implemented standalone; did NOT import from TICKET-7's unmerged `lib/host-auth.ts`. New unit test: same-length wrong token still 401 (exercises the timingSafeEqual path). Verified: `npx jest` → **106/106 passed**; `npm run build` → green.
+- **L1 (uuid-rotation rate-limit bypass) and L2 (sanitize-at-consumer):** recorded as follow-ups per the gate verdict — no action in this PR.
+
 ## Follow-ups filed / suggested
 
 - Micro-prompts (after first song / host session end), 1/session dismissible.
 - Provision Upstash so feedback is actually durable in the live app (shared with the queue store's same gap).
+- Security L1: mitigate uuid-rotation rate-limit bypass (e.g. secondary IP-based cap).
+- Security L2: sanitize/escape feedback text at every consumer (intake reports, future admin UI).

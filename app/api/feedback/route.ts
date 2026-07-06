@@ -12,6 +12,7 @@
  * status — it fills those itself.
  */
 
+import { timingSafeEqual } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import {
   feedbackStore,
@@ -65,14 +66,23 @@ function appVersion(): string {
   );
 }
 
-/** Constant-time-ish admin token check. Fail-closed when the env token is unset. */
+/**
+ * Timing-safe admin token check (security M1). Fail-closed when the env token
+ * is unset. `crypto.timingSafeEqual` requires equal-length buffers, so a length
+ * mismatch is rejected up front — that leaks only the token's length, never its
+ * contents, which is fine for a long random secret.
+ */
 function isAdmin(req: NextRequest): boolean {
   const expected = process.env.FEEDBACK_ADMIN_TOKEN;
   if (!expected) return false; // no token configured → nobody is admin
   const auth = req.headers.get("authorization") ?? "";
   const m = /^Bearer\s+(.+)$/i.exec(auth);
   const provided = m?.[1]?.trim();
-  return !!provided && provided === expected;
+  if (!provided) return false;
+  const a = Buffer.from(provided, "utf8");
+  const b = Buffer.from(expected, "utf8");
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(a, b);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
