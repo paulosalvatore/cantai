@@ -59,6 +59,10 @@ Small codebase, read directly (no Explore subagent needed): only `app/api/queue/
 
 - Provision **Upstash Redis** via the Vercel Marketplace on `paulosalvatores-projects/cantai`; pull `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` into Vercel env (+ local `.env` for local upstash runs). Account-level dashboard action. Until then the app runs on the memory driver everywhere; the durability ACs (1 cross-instance, 2) are satisfied by-design + unit tests and will be live-verifiable once creds exist.
 
+## Security gate follow-up (PASS-WITH-NOTES, folded in)
+
+Per the security gate on PR #7: added `import "server-only"` to `lib/store.ts` and `lib/store/upstash.ts` (+ `server-only@^0.0.1` dependency) so any future client-component import of the store fails at build time instead of silently bundling credential-reading code. Jest runs under plain node where `server-only` throws by design, so `jest.config.ts` maps it to an empty stub (`__mocks__/server-only.ts`) — the guard stays active in Next.js builds. Re-verified: `npm test` 78/78 green, `npm run build` compiled + 7/7 pages. Remaining findings (non-atomic host ops, roomId validation) recorded as acceptable-now / TICKET-9-scoped — no action per TM.
+
 ## Friction
 
 - Framework `emit-event.sh` / `heartbeat.sh` live in the framework repo, not the product repo; had to invoke by absolute framework path. `heartbeat.sh` rejected `--ticket` (arg mismatch) — skipped (live-UX only, non-blocking).

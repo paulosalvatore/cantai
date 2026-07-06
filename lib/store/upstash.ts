@@ -15,6 +15,8 @@
  * fake Redis with zero network/credentials.
  */
 
+import "server-only";
+
 import { Redis } from "@upstash/redis";
 import {
   keys,

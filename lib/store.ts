@@ -14,6 +14,8 @@
  * introduces multi-room, that is the exported DEFAULT_ROOM.
  */
 
+import "server-only";
+
 import { MemoryStore } from "./store/memory";
 import { createUpstashStore } from "./store/upstash";
 import type { QueueStore } from "./store/types";
