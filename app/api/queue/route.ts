@@ -3,6 +3,8 @@ import { v4 as uuidv4 } from "uuid";
 import { store, DEFAULT_ROOM, QUEUE_MAX, type Mode, type QueueEntry } from "@/lib/store";
 import { isValidRoomId, getRoomMode } from "@/lib/rooms";
 import { checkSubmit, orderQueue, relayQueue } from "@/lib/rotation";
+import { submitRateLimitOk, SUBMIT_RATE_MESSAGE } from "@/lib/queue-rate-limit";
+import { clientIpFrom } from "@/lib/host-auth";
 import { isValidVideoId, parseYouTubeVideoId } from "@/lib/youtube";
 import { track } from "@/lib/telemetry";
 
@@ -109,6 +111,16 @@ export async function POST(req: NextRequest) {
       { error: "patronUuid must be a valid UUID" },
       { status: 400 }
     );
+  }
+
+  // TICKET-10 (security MEDIUM-1 track 2): dual-bucket submit rate limit —
+  // 10/min per patronUuid + 60/min per IP. Charged only for well-formed
+  // submissions (after uuid validation) so garbage requests can't burn a
+  // legitimate patron's bucket; checked BEFORE any store work so an over-limit
+  // caller never triggers a queue read or re-lay.
+  if (!submitRateLimitOk(patronUuid.trim().toLowerCase(), clientIpFrom(req))) {
+    void track("submit_rejected", { roomId, uuid: patronUuid.trim(), props: { reason: "rate" } }); // fire-and-forget, fail-open
+    return NextResponse.json({ error: SUBMIT_RATE_MESSAGE, reason: "rate" }, { status: 429 });
   }
 
   if (typeof title === "string" && title.trim().length > MAX_TITLE) {

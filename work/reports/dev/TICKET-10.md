@@ -10,7 +10,7 @@
 The fairness brain is live. The venue picks full-karaoke / 2-por-mesa / 1-por-pessoa on `/[room]/admin`; the shared queue orders itself via `@cantai/rotation-engine`; submit enforces per-mode caps; TV/patron render the effective order with a reorder toast and a 30s "get to the mic" no-show call.
 
 ### Integration model (frozen store, composition on top)
-The `QueueStore` interface is untouched. Ordering is computed fresh over the store queue by the adapter `lib/rotation.ts`; the store's physical order is kept in effective order by **re-laying** (frozen `reorder` op) on the two ordering mutations — submit and mode-switch — so reads AND the store-head-based `advance`/`skip` all reflect fair order. `items[0]` is the pinned now-playing entry; its fairness group is seeded as "served this round" (the spec `nowPlaying` quota rule). Fairness memory is one turn deep — a documented v1 tradeoff the ticket accepts ("full-queue read-per-advance at bar scale"); deeper cross-play credit needs store state the contract forbids (follow-up).
+Ordering is computed fresh over the store queue by the adapter `lib/rotation.ts`; the store's physical order is kept in effective order by **re-laying** — one additive bulk `rewrite` store op (added post-security-gate; the wave-2 interface freeze ended with wave 2) — on the two ordering mutations — submit and mode-switch — so reads AND the store-head-based `advance`/`skip` all reflect fair order. `items[0]` is the pinned now-playing entry; its fairness group is seeded as "served this round" (the spec `nowPlaying` quota rule). Fairness memory is one turn deep — a documented v1 tradeoff the ticket accepts ("full-queue read-per-advance at bar scale"); deeper cross-play credit needs store state the contract forbids (follow-up).
 
 ### A1–A6 reconciliation (engine, policy per merged spec)
 | # | Resolution |
@@ -51,8 +51,17 @@ The `QueueStore` interface is untouched. Ordering is computed fresh over the sto
 
 CI (`gh pr checks`) output to be pasted before requesting gates (S1 contract).
 
+## Security-gate resolutions (PASS-WITH-NOTES verdict, 2026-07-06)
+
+- **MEDIUM-1 (fixed, both tracks):**
+  - (a) Additive `QueueStore.rewrite(roomId, entries)` bulk-replace op — interface + MemoryStore + UpstashStore (Upstash: single del+rpush-all; the pre-existing private helper made public as `rewrite`, internal helper renamed `rewriteKey`). `relayQueue` now issues **one** store call regardless of queue depth (was N-1 sequential `reorder` ≈ 3 RTTs each, ~597 calls near QUEUE_MAX). Conformance-tested in the `describe.each` store suite (5 new tests × both drivers) plus a spy test asserting exactly 1 `rewrite` / 0 `reorder` calls per relay and no write on 0/1-entry queues.
+  - (b) Dual-bucket submit rate limiter `lib/queue-rate-limit.ts` on POST /api/queue (house pattern — mirrors the search/feedback/beacon limiters): **10/min/patronUuid + 60/min/IP**, LRU-capped bucket map, polite pt-BR 429 ("Calma, cantor! Muitos pedidos em pouco tempo…"), charged only after uuid validation (garbage can't burn a patron's bucket) and checked before any store work (over-limit never triggers a queue read or relay). Unit + route tests: trips at the cap, window slides, uuid rotation can't dodge the IP bucket, malformed submits don't charge.
+- **INFO-1 (fixed):** `/api/host/mode` derives its `valid` set from `MODE_META` (single source of truth; the 400 copy derives too).
+- **MEDIUM-2 (documented, per remediation direction):** accepted-v1-limitation note in `packages/rotation-engine/README.md` §Notes — caps key on self-reported uuid/table; rotation/fake tables bypass them; host visual detection + remove controls at bar scale; per-IP pending-sing grouping tracked in the #14 hardening batch.
+
+Post-fix verification: app jest **23 suites / 325 tests** (was 308, +17), engine **59/59**, `npm run build` clean, Playwright e2e **18/18**.
+
 ## Notes / follow-ups (not blocking)
 - Host manual reorder (TICKET-7) is a transient override — the next submit/mode-switch re-lays under the fairness engine. A host "pin/manual mode" is a possible follow-up.
 - Deeper (multi-turn) fairness credit needs persisted session history — out of scope under the frozen store; documented in `lib/rotation.ts`.
 - Grace is host-authorized only (patrons can't self-grant): `/api/host/skip {grace:true}` re-queues the head with `graceRequeue`.
-</content>

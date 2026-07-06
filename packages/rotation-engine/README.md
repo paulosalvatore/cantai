@@ -148,7 +148,16 @@ npm run typecheck # tsc --noEmit
 
 ## Notes
 
-- CI wiring for this package lands with the app-integration ticket (the app's
-  workflow owns `.github/workflows/ci.yml`).
+- CI runs this package's `node --test` suite as a step of the app workflow
+  (`.github/workflows/ci.yml`, wired in the TICKET-10 integration PR).
 - The engine is deliberately I/O-free: identity, persistence, realtime sync, and
   the YouTube player all live in the app that consumes this library.
+- **Accepted v1 limitation — identity is self-reported (PR #14 security
+  MEDIUM-2).** Fairness caps key on the client-minted anonymous `uuid`
+  (browser localStorage) and the user-typed `table` string. Clearing
+  localStorage / going incognito mints a fresh uuid (cap reset), and fake table
+  strings dodge the per-table cap. This is inherent to the no-signup identity
+  model the product chose; at bar scale the host sees queue spam visually and
+  has remove controls. Server-side per-IP pending-sing grouping is the planned
+  lightweight mitigation (tracked in the #14 hardening batch) — it raises the
+  bypass cost without requiring accounts.

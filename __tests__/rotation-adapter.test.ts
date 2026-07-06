@@ -8,8 +8,8 @@
  * reorder and grace ordering.
  */
 
-import { orderQueue, checkSubmit } from "@/lib/rotation";
-import type { QueueEntry } from "@/lib/store";
+import { orderQueue, checkSubmit, relayQueue } from "@/lib/rotation";
+import { store, type QueueEntry } from "@/lib/store";
 import type { RoomMode } from "@/lib/rotation-modes";
 
 let seq = 0;
@@ -168,6 +168,36 @@ describe("checkSubmit — submit-time enforcement + friendly copy", () => {
   it("full-karaoke never caps sing submissions", () => {
     const q = ["a", "b", "c", "d", "e"].map((id) => mk(id, { patronUuid: "U", videoId: `v${id}` }));
     expect(checkSubmit(q, mk("f", { patronUuid: "U", videoId: "vf" }), "full-karaoke").ok).toBe(true);
+  });
+});
+
+describe("relayQueue — single bulk store op (security MEDIUM-1, PR #14)", () => {
+  const ROOM = "relay-room";
+  afterEach(async () => {
+    jest.restoreAllMocks();
+    await store.clear(ROOM);
+  });
+
+  it("issues exactly ONE store.rewrite call and ZERO reorder calls", async () => {
+    await store.addEntry(ROOM, entry({ id: "A1", patronUuid: "A" }));
+    await store.addEntry(ROOM, entry({ id: "A2", patronUuid: "A" }));
+    await store.addEntry(ROOM, entry({ id: "B1", patronUuid: "B" }));
+
+    const rewriteSpy = jest.spyOn(store, "rewrite");
+    const reorderSpy = jest.spyOn(store, "reorder");
+    await relayQueue(ROOM, "full-karaoke");
+
+    expect(rewriteSpy).toHaveBeenCalledTimes(1);
+    expect(reorderSpy).not.toHaveBeenCalled();
+    // and the store now holds the effective order (A1 pinned, then RR)
+    expect((await store.getQueue(ROOM)).map((e) => e.id)).toEqual(["A1", "B1", "A2"]);
+  });
+
+  it("no-ops (no store write) on a 0/1-entry queue", async () => {
+    await store.addEntry(ROOM, entry({ id: "only" }));
+    const rewriteSpy = jest.spyOn(store, "rewrite");
+    await relayQueue(ROOM, "per-table-2");
+    expect(rewriteSpy).not.toHaveBeenCalled();
   });
 });
 

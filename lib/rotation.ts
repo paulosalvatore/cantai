@@ -210,17 +210,17 @@ export function checkSubmit(
 /**
  * Re-lay the room's stored queue into effective order (pinning now-playing) so
  * that reads render fairly AND `advance`/`skip` (which operate on the store's
- * physical head) play the effective head. Uses only the frozen `reorder` op.
- * No-op for a queue of 0/1 entries. Best-effort: a `reorder` miss (e.g. a racing
- * concurrent mutation) self-heals on the next relay.
+ * physical head) play the effective head. Uses the store's bulk `rewrite` op —
+ * ONE store call regardless of queue depth (security MEDIUM-1 on PR #14: the
+ * previous N-1 sequential `reorder` calls were ~3 Redis RTTs each — seconds of
+ * patron-borne submit latency near QUEUE_MAX). No-op for a queue of 0/1
+ * entries. Best-effort last-writer-wins on races (the same read-modify-write
+ * semantics `reorder` already had); a racing mutation self-heals on the next
+ * relay.
  */
 export async function relayQueue(roomId: string, mode: RoomMode): Promise<void> {
   const items = await store.getQueue(roomId);
   if (items.length <= 1) return;
   const desired = orderQueue(items, mode);
-  // Place each entry at its target index in order; earlier placements are fixed
-  // and later `reorder` moves (index ≥ i) never disturb them.
-  for (let i = 1; i < desired.length; i++) {
-    await store.reorder(roomId, desired[i].id, i);
-  }
+  await store.rewrite(roomId, desired);
 }

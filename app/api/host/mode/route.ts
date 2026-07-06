@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireHost, roomIdFromRequest } from "@/lib/host-auth";
 import { getRoomMode, setRoomMode } from "@/lib/rooms";
 import { relayQueue } from "@/lib/rotation";
-import { normalizeRoomMode, type RoomMode } from "@/lib/rotation-modes";
+import { MODE_META, normalizeRoomMode, type RoomMode } from "@/lib/rotation-modes";
 import { track } from "@/lib/telemetry";
 
 /**
@@ -29,10 +29,12 @@ export async function POST(req: NextRequest) {
   }
 
   const raw = (body as Record<string, unknown>)?.mode;
-  const valid: RoomMode[] = ["full-karaoke", "per-table-2", "per-person-1"];
+  // Derived from MODE_META (security INFO-1, PR #14): the route's acceptance
+  // set automatically tracks the canonical mode list — no inline literal to rot.
+  const valid: readonly RoomMode[] = MODE_META.map((m) => m.mode);
   if (typeof raw !== "string" || !valid.includes(raw as RoomMode)) {
     return NextResponse.json(
-      { error: "mode must be one of full-karaoke | per-table-2 | per-person-1" },
+      { error: `mode must be one of ${valid.join(" | ")}` },
       { status: 400 },
     );
   }
