@@ -1,6 +1,6 @@
 # Dev Report — TICKET-21: Atomic store RMW (lost-update fix)
 
-- **Status:** IMPLEMENTED — local gates green (jest 340/340, engine 59/59, `npm run build` clean). Draft PR open; awaiting CI.
+- **Status:** IMPLEMENTED — CI terminal-green. Draft PR #16. Ready for gates.
 - **Product:** cantai
 - **Branch:** `ticket/21-atomic-rmw`
 - **Worktree:** `/Users/paulosalvatore/Documents/GitHub/cantai/.worktrees/ticket-21`
@@ -73,4 +73,12 @@ CI has no Upstash credentials, so the Upstash driver is exercised via an in-proc
 
 ## CI
 
-See `gh pr checks` output pasted in the PR thread and below once terminal.
+PR #16 — terminal-green (verbatim `gh pr checks 16` posted to the PR thread):
+
+```
+Vercel	pass	0	...	Deployment has completed
+Vercel Preview Comments	pass	0	...
+build-and-test	pass	2m15s	.../runs/28873478595
+```
+
+Required check `build-and-test` green (npm ci → engine node --test 59/59 → npm run build → jest 340 → e2e). Commit: pushed to `origin/ticket/21-atomic-rmw`.
