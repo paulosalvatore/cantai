@@ -239,3 +239,54 @@ unit test, crawlLinks sleep) — both non-blocking; suggest follow-up tickets.
 
 Ready for TM merge.
 ```
+
+---
+
+# D-022 OPUS SECOND PASS (merge-counting) — Reviewer (opus)
+
+**Date:** 2026-07-07 · **Model:** opus (claude-opus-4-8) · **Verdict: APPROVE (merge-counting)** with 4 filed follow-ups.
+
+This pass is the judgment layer requested because the TL explicitly distrusted prior coverage ("I think app tester didn't test properly"). I re-verified everything locally against the exact merging tip `origin/ticket/20-p0-ux-fixes` (155629173).
+
+## Self-verification (opus, on the merging tip)
+- Unit: **333/333** pass (Jest, 2.0s).
+- E2e: **28/28** pass (Playwright, 1.3m) — incl. all 10 render-and-links specs.
+- Build: `next build` exit 0, clean.
+- `lib/store/**`: diff is **empty** — PR #16 (store, merging concurrently) has zero overlap; no rebase collision surface. Branch merge-base == current `main` (c84bd5d), so it is already current vs main.
+- CI: last GitHub Actions `CI` run is **success** on 9cd8467; the only commits after it (tip 155629173) are evidence PNGs + the two report `.md`s + event-log jsonl — **zero source/test code** (verified via `git diff 9cd8467..tip --stat`). ci.yml triggers on `pull_request`. S1 satisfied in substance: all merging code is green both by the last CI run and by my own full local run on the tip. Non-blocking observation, not a pending required check.
+
+## TL-TRUST RULING — would THIS suite have caught the original bugs?
+
+**Partially — and the one it would MISS is the exact bug the TL personally flagged.**
+
+- **Bug #2 (the invisible join input) was a CONTRAST/camouflage bug, not a missing-element bug.** The fix (app/page.tsx) changes the input fill from `var(--surface)` (identical to the card behind it → camouflaged, looked absent) to `var(--bg)` + a `var(--text-muted)` border. The new regression test (`render-and-links.spec.ts:78`) asserts `getByLabel(/código da sala/i)` → `toBeVisible()` → `fill()` → button `toBeEnabled()`. **Playwright's `toBeVisible()` returns TRUE for a same-background-color (camouflaged) input** — it checks DOM presence, `display`, `visibility`, non-zero box; it does **not** evaluate colour contrast. So this assertion would have **passed on the OLD broken input**. It does not protect against a re-camouflage. This is precisely the existence-only false-assurance the TL complained about — and the test comment ("bug #2: must be present + usable") mildly over-claims the coverage it provides.
+- **The actual fix IS correct and IS human-verified** by review-grade screenshot evidence (`01-landing-join-input-visible.png`, `apptester-01-landing-join-input.png`) showing the field now visibly reads as an input. So the shipped behaviour is right; what's absent is *automated regression protection for the contrast class*.
+- **What the suite genuinely DOES add (real value, not theatre):** per-page render assertions across all 6 route families; a link crawler that actually enumerates same-origin `<a href>`s from the live DOM and GETs each asserting non-404; real create→read→login round-trips with a `warmUp` that correctly handles the `next dev` in-memory singleton reset. It would catch a whole-element-missing regression, a dead/404 internal link, a broken redirect, a missing player-hint/recreate path. That is a meaningful, maintainable step up from the prior coverage.
+
+**Bottom line for the TL:** the suite is a real improvement and answers most of the distrust, but it would NOT catch a recurrence of the specific camouflage bug — a `toBeVisible()` pass on a visually-invisible-but-DOM-present element is still in the suite. I am not blocking on it (fix is correct + screenshot-verified + code green), but I am filing the contrast-smoke-assertion as a required follow-up so the class the TL hit gets real automated protection.
+
+## Other concerns (all resolved)
+2. **Ephemeral notice won't false-positive post-Upstash.** `isEphemeralRoomStore() = resolveDriver()==="memory" && NODE_ENV==="production"`. `resolveDriver()` reads `STORE_DRIVER` (explicit) else `UPSTASH_REDIS_REST_URL` presence — the **same** selection `createBackend()` uses (verified), so it reads the actual driver, not a divergent copy. With Upstash live in prod, driver = `upstash` → `false` → notice correctly stays hidden. ✓
+3. **Slug migration backward compat is safe.** `ROOM_ID_RE = /^[a-z0-9-]{1,64}$/` accepts both clean slugs and legacy suffixed ids; rooms are looked up by exact stored key, so any already-shared suffixed link (e.g. `bar-do-paulin-hjj2`) still resolves by its stored id. The clean-slug change affects only **newly minted** ids, never existing keys. `deriveRoomName` strips the trailing 4-char base32 suffix for the recreate prefill (unit-tested). No URL-contract break for existing links. ✓
+4. **Collision-suffix UX is silent (minor).** A second "Bar do Paulin" gets `bar-do-paulin-<sfx>` and the creator is not told their preferred slug was taken. The venue *name* is preserved (stored separately from id) and the creator does see the final suffixed join-url. Acceptable to ship; filed as a low-priority UX follow-up.
+5. **`lib/store/**` untouched** — verified empty diff; no PR #16 collision. ✓
+
+## Filed follow-ups (none block this merge)
+- **F/A (HIGH, test hardening):** add a reusable computed-style contrast smoke assertion — assert the join input's computed `background-color` differs from its parent card's — and extend the helper across form inputs. Closes the camouflage class the TL hit. (class-level prevention)
+- **F/B (NIT):** correct the `render-and-links.spec.ts:78` comment so it no longer implies it covers bug #2's *visual* failure mode.
+- **F/C (NIT, carried from sonnet):** add a direct `isEphemeralRoomStore()` unit test (memory+production → true; upstash → false).
+- **F/D (NIT, carried from sonnet):** replace the `crawlLinks` `waitForTimeout(300)` with a deterministic wait.
+- **F/E (LOW UX):** tell the creator when their preferred slug collided and a unique link was generated.
+
+## Verdict
+```
+[reviewer][opus] APPROVE (D-022 merge-counting) — TICKET-20 P0 UX fixes + render/link suite.
+Re-verified on the merging tip: 333/333 unit, 28/28 e2e, build exit 0, lib/store/** untouched
+(no PR #16 collision), branch current vs main. Ephemeral detection reads the real driver and
+won't false-positive now that Upstash is live; slug migration preserves existing suffixed links;
+reserved-slug set complete. TL-trust ruling: the suite is a genuine, DOM-crawling improvement but
+its landing assertion is toBeVisible()-only and would NOT catch a recurrence of the specific
+contrast/camouflage bug (#2) — that fix is correct and screenshot-verified, so not blocking, but a
+computed-style contrast smoke assertion is filed as a required HIGH follow-up (F/A). 4 other
+non-blocking follow-ups filed. Cleared for TM merge.
+```
