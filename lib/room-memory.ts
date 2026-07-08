@@ -32,7 +32,12 @@ export interface StorageLike {
   removeItem(key: string): void;
 }
 
-/** localStorage key for the remembered-rooms list. Versioned for future migration. */
+/**
+ * localStorage key for the remembered-rooms list. Versioned for future migration:
+ * additive shape changes are absorbed at read time by `coerceRoom`'s defaults (no
+ * key bump); bump to `_v2` ONLY on a breaking shape change, with a one-time
+ * read-v1→write-v2 migration in `loadRooms` (NIT-2, PR #22 review).
+ */
 export const ROOMS_KEY = "cantai_rooms_v1";
 
 /**
@@ -130,6 +135,28 @@ export function loadRooms(storage: StorageLike = browserStorage()): RememberedRo
     .map(coerceRoom)
     .filter((r): r is RememberedRoom => r !== null);
   return sortRooms(rooms);
+}
+
+/**
+ * How many created rooms the landing page eagerly probes for a live host session
+ * (BLOCKING-1, PR #22 review). Only the most-recently-touched few are plausible
+ * "still-warm cookie" candidates (the cookie lives ~12h); probing all 50 would
+ * fan out 50 parallel fetches on every landing load.
+ */
+export const MAX_HOST_PROBES = 3;
+
+/**
+ * The created rooms worth an eager host-session probe: most-recent-first,
+ * bounded at `limit` (default MAX_HOST_PROBES). Rooms beyond the bound aren't
+ * probed — their admin links route through the login gate, which self-corrects
+ * via its own `checkSession()` on load. Pure (input is assumed sorted, as
+ * `loadRooms` returns it), so the probe bound is unit-testable without a DOM.
+ */
+export function roomsToProbe(
+  rooms: RememberedRoom[],
+  limit: number = MAX_HOST_PROBES,
+): RememberedRoom[] {
+  return rooms.filter((r) => r.role === "created").slice(0, limit);
 }
 
 /** Sort a copy most-recent-first (stable on ties by id for determinism). */

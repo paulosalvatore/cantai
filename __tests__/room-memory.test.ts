@@ -8,10 +8,12 @@
 import {
   ROOMS_KEY,
   MAX_ROOMS,
+  MAX_HOST_PROBES,
   loadRooms,
   rememberCreatedRoom,
   rememberJoinedRoom,
   forgetRoom,
+  roomsToProbe,
   syncLocalRooms,
   type StorageLike,
 } from "@/lib/room-memory";
@@ -163,6 +165,37 @@ describe("resilience", () => {
       ]),
     );
     expect(loadRooms(store).map((r) => r.id)).toEqual(["good"]);
+  });
+});
+
+describe("probe bound (BLOCKING-1, PR #22)", () => {
+  it(`probes at most ${MAX_HOST_PROBES} created rooms with 5+ created remembered`, () => {
+    for (let i = 0; i < 5; i++) {
+      rememberCreatedRoom({ id: `mine-${i}`, name: `Mine ${i}`, createdAt: i }, store);
+    }
+    rememberJoinedRoom({ id: "guest", name: "Guest", lastSeen: 999 }, store);
+
+    const probes = roomsToProbe(loadRooms(store));
+    expect(probes).toHaveLength(MAX_HOST_PROBES);
+    // Most-recent created rooms first; the joined room is never probed.
+    expect(probes.map((r) => r.id)).toEqual(["mine-4", "mine-3", "mine-2"]);
+    expect(probes.every((r) => r.role === "created")).toBe(true);
+  });
+
+  it("probes fewer when fewer created rooms exist, and none for joined-only", () => {
+    rememberCreatedRoom({ id: "only", name: "Only", createdAt: 1 }, store);
+    rememberJoinedRoom({ id: "guest", name: "Guest", lastSeen: 2 }, store);
+    expect(roomsToProbe(loadRooms(store)).map((r) => r.id)).toEqual(["only"]);
+
+    const joinedOnly = loadRooms(store).filter((r) => r.role === "joined");
+    expect(roomsToProbe(joinedOnly)).toEqual([]);
+  });
+
+  it("respects a custom limit", () => {
+    for (let i = 0; i < 4; i++) {
+      rememberCreatedRoom({ id: `r-${i}`, name: `R ${i}`, createdAt: i }, store);
+    }
+    expect(roomsToProbe(loadRooms(store), 1).map((r) => r.id)).toEqual(["r-3"]);
   });
 });
 

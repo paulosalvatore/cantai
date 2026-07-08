@@ -1,6 +1,6 @@
 # Dev report — TICKET-43: recoverable sessions without login
 
-- **Status:** IMPLEMENTED — suite green (371 unit + 31 e2e), draft PR opened.
+- **Status:** REVIEW FIXES APPLIED — reviewer BLOCKING-1 + both nits addressed; suite green (374 unit + 31 e2e); re-verdict requested on PR #22.
 - **Product:** boraoke (`paulosalvatore/boraoke`)
 - **Branch / worktree:** `ticket/43-session-recovery` / `.worktrees/ticket-43`
 - **App port:** 3043
@@ -38,6 +38,15 @@ Device-level room memory (no login) + honest host-session recovery UX, as the an
 - **Clean** — no unavoidable overlap with TICKET-40 (`SongSearch.tsx`, patron form, `/api/search`) or TICKET-41 (`app/tv/**`, `components/tv/**`, `/api/queue/advance`).
 - `PatronRoom.tsx` is touched by this ticket: I added a single import + a `rememberJoinedRoom(...)` call inside the existing boot `useEffect` (the block that already sets `cantai_last_room`). If TICKET-40 also edits `PatronRoom.tsx` (patron form), that's a shared file → **sequential merge**; the change is localized to the boot effect and the form region is untouched.
 - `AdminRoom.tsx` and `app/new/page.tsx` are mine; not in TICKET-40/41 surfaces.
+
+## Review round 1 (REQUEST-CHANGES → fixed)
+
+Reviewer verdict: REQUEST-CHANGES, 1 blocker + 2 nits (PR #22 comment 4918887673; report `work/reports/review/TICKET-43-review.md`).
+
+- **BLOCKING-1 (unbounded probe fan-out):** the `SavedRooms` host-session probe looped over ALL created rooms — up to 50 parallel fetches per landing load. Fixed by extracting a pure, unit-testable `roomsToProbe(rooms, limit = MAX_HOST_PROBES)` in `lib/room-memory.ts` (`MAX_HOST_PROBES = 3`): only the top-3 most-recently-touched created rooms are probed; the rest self-route via AdminRoom's own `checkSession()`.
+- **NIT-1 (in-flight adminHref):** flipped the default — only a probe that POSITIVELY returned "expired" routes to `?expired=1`; in-flight/unprobed rooms link to plain `/<id>/admin` (AdminRoom self-routes), so a fast click never sees a misleading "expirou".
+- **NIT-2 (migration story):** `ROOMS_KEY` comment now documents it — additive shape changes are absorbed by `coerceRoom` defaults at read time (no key bump); bump to `_v2` only on a breaking shape change with a one-time read-v1→write-v2 migration in `loadRooms`.
+- **New tests:** `describe("probe bound")` — only 3 probed with 5+ created rooms (joined never probed, most-recent-first), fewer-than-limit case, custom limit. Unit suite now **374 passed** (25 suites); build clean; full e2e **31 passed** on PORT=3043 (all green this run, including the feedback spec the reviewer noted as flaky-on-main).
 
 ## Friction
 
