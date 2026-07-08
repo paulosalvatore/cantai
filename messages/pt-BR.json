@@ -154,6 +154,10 @@
   "Feedback": {
     "trigger": "Enviar feedback",
     "title": "Como tá sendo? 🎶",
+    "subtitle": "Toca numa carinha pra mandar — rapidão, sem login.",
+    "sendHint": "É só tocar numa carinha pra enviar.",
+    "sending": "Enviando…",
+    "thanksBody": "Um robô supervisionado por humanos lê cada um desses. Fica de olho no changelog. 🚀",
     "close": "Fechar",
     "sentimentAria": "Sentimento",
     "sentimentLove": "Amei",

@@ -154,6 +154,10 @@
   "Feedback": {
     "trigger": "Send feedback",
     "title": "How's it going? 🎶",
+    "subtitle": "Tap a face to send — quick, no login.",
+    "sendHint": "Just tap a face to send.",
+    "sending": "Sending…",
+    "thanksBody": "A human-supervised bot reads every one of these. Keep an eye on the changelog. 🚀",
     "close": "Close",
     "sentimentAria": "Feeling",
     "sentimentLove": "Love it",

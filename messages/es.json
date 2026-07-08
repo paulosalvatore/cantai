@@ -154,6 +154,10 @@
   "Feedback": {
     "trigger": "Enviar comentarios",
     "title": "¿Qué tal va? 🎶",
+    "subtitle": "Toca una carita para enviar — rápido, sin login.",
+    "sendHint": "Solo toca una carita para enviar.",
+    "sending": "Enviando…",
+    "thanksBody": "Un bot supervisado por humanos lee cada uno de estos. Está atento al changelog. 🚀",
     "close": "Cerrar",
     "sentimentAria": "Sensación",
     "sentimentLove": "Me encanta",

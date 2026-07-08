@@ -6,7 +6,8 @@ import { FeedbackWidget } from "@/components/FeedbackWidget";
 // Locale-aware metadata (TICKET-30): `generateMetadata` follows the request
 // locale (title/description/OG image) with a pt-BR fallback. `viewport` stays
 // static.
-export { generateMetadata, viewport } from "./metadata";
+export { generateMetadata } from "./generate-metadata";
+export { viewport } from "./metadata";
 
 export default async function RootLayout({
   children,
