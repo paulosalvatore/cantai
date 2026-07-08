@@ -13,6 +13,10 @@ _Last updated: 2026-07-08 (REBRAND SHIPPED — boraoke.com fully live; TL live-u
 
 ## Follow-ups (filed by gates, unscheduled)
 
+- **BINDING for TICKET-28 (accounts/claim): claim-path AC (PR #22 opus)** — the server MUST treat localStorage `claimable`/posted room-id lists as an untrusted claim REQUEST, never ownership evidence; authorize only via the server-registered anon uuid's `identity:{uuid}:rooms` index (TICKET-26) or host-token proof for legacy rooms; sign-out clears device memory (AC4).
+- **TICKET-45 (next slot): advance-auth screen-token + per-room rate limit** — design complete in work/plans/TICKET-41-plan.md (HMAC screen-token, log-only→enforce rollout, e2e drain-helper migration). TL-directed (skip-from-patron hole). Launch after #21/#24 merge.
+- **Paste-submit embeddability warning** (TICKET-41 deferral; after #40 merges — patron-form file).
+
 - **[HIGH] Atomic store RMW (PR #14 opus)** — WATCH/Lua CAS on QueueStore rewrite/removeEntry/reorder + concurrency regression test. Closes the lost-submit window (~0.1-0.3/busy night in bursts, patron-visible+permanent) AND the pre-existing host-op races in one change. First candidate for the next dev slot.
 - **[LOW] Strip patronUuid from public GET /api/queue projection** (griefing lockout via per-uuid limiter) — weigh against patron-page own-row highlighting (may need a hashed marker instead).
 - **[LOW] rotation.ts:13 stale JSDoc; grace-path addEntry-return check** (PR #14 sonnet NITs).
