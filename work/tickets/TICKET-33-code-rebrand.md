@@ -26,7 +26,7 @@ No `cantai`-prefixed CSS class names exist (design-v2 uses generic token/class n
 The merged design-v2 (#18) does NOT define a `--brand-name` CSS/JS token, so there is nothing to wire. Wordmark text is inline. Noted; no token introduced (out of scope to invent one).
 
 ### 2. Publish-readiness metadata
-- Root `app/layout.tsx` `metadata`: pt-BR `title` (template + default) / `description`, `metadataBase` = https://boraoke.com, OpenGraph + Twitter card → `/brand/og-image.png` (en/es variants deferred to i18n wave-30; hreflang/locale-aware OG is wave-30 scope, default pt-BR now), `lang="pt-BR"`, theme-color, icons, manifest.
+- Root `app/layout.tsx` `metadata`: pt-BR `title` (template + default) / `description`, `metadataBase` = https://boraoke.com, OpenGraph + Twitter card → `/brand/og-image-pt-BR.png` (en/es variants deferred to i18n wave-30; hreflang/locale-aware OG is wave-30 scope, default pt-BR now), `lang="pt-BR"`, theme-color, icons, manifest.
 - Per-page titles via title template (TV page keeps its own short title).
 - Favicon set generated from `public/brand/favicon-source.png` via `sips`: `app/icon.png` (32), `app/apple-icon.png` (180), plus `public/favicon.ico`-compatible + manifest icons (192/512). NOTE: `public/brand/favicon-source.png` ships in PR #19 (brand-assets) — generation runs against it; if PR #19 is not yet merged into this branch the icons are committed as generated artifacts.
 - `public/manifest.json`: name **Boraoke**, theme color **#0D0A14**, icons.

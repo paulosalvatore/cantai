@@ -28,13 +28,13 @@ describe("root layout metadata (TICKET-33 publish readiness)", () => {
     };
     expect(og.siteName).toBe("Boraoke");
     expect(og.locale).toBe("pt_BR");
-    expect(og.images?.[0]?.url).toBe("/brand/og-image.png");
+    expect(og.images?.[0]?.url).toBe("/brand/og-image-pt-BR.png");
   });
 
   it("wires a Twitter summary_large_image card", () => {
     const tw = metadata.twitter as { card?: string; images?: string[] };
     expect(tw.card).toBe("summary_large_image");
-    expect(tw.images?.[0]).toBe("/brand/og-image.png");
+    expect(tw.images?.[0]).toBe("/brand/og-image-pt-BR.png");
   });
 
   it("references the web app manifest", () => {

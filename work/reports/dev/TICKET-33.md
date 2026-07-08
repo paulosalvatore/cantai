@@ -29,11 +29,11 @@ The `cantai*` **localStorage keys** (`cantai_patron_uuid`, `cantai_nickname`, `c
 - **Historical `work/` docs** (`work/tickets/TICKET-*.md`, past reports): left as-is — they are the historical record under the old brand.
 
 ## Publish-readiness metadata
-- `app/metadata.ts` (split out of `app/layout.tsx` so it's unit-testable without CSS/client imports): `metadataBase = https://boraoke.com`, pt-BR title template + description, OpenGraph (type/siteName/locale `pt_BR`/url/title/description/image `/brand/og-image.png` 1200×630) and Twitter `summary_large_image` → same image, `manifest: /manifest.json`. **en/es OG variants + hreflang deferred to i18n wave-30** as scoped; pt-BR is the default now. `<html lang="pt-BR">`; `viewport.themeColor = #0D0A14`.
+- `app/metadata.ts` (split out of `app/layout.tsx` so it's unit-testable without CSS/client imports): `metadataBase = https://boraoke.com`, pt-BR title template + description, OpenGraph (type/siteName/locale `pt_BR`/url/title/description/image `/brand/og-image-pt-BR.png` 1200×630) and Twitter `summary_large_image` → same image, `manifest: /manifest.json`. **en/es OG variants + hreflang deferred to i18n wave-30** as scoped; pt-BR is the default now. `<html lang="pt-BR">`; `viewport.themeColor = #0D0A14`.
 - Favicons via App-Router file convention: `app/icon.png` (32) + `app/apple-icon.png` (180), generated with `sips` from the square brand `app-icon.png` (1024²). PWA icons `public/icons/icon-192.png` + `icon-512.png`.
 - `public/manifest.json`: name Boraoke, theme/bg `#0D0A14`, pt-BR, standalone, 192/512 icons (`any maskable`).
 - `public/robots.txt`: `Allow: /` + sitemap host.
-- NOTE: OG image path `/brand/og-image.png` resolves once PR #19 (brand-assets) merges into main; the metadata + tests are correct now.
+- NOTE: OG image path `/brand/og-image-pt-BR.png` resolves once PR #19 (brand-assets) merges into main; the metadata + tests are correct now.
 
 ## Canonical domain
 - `next.config.ts` `redirects()`: host-matched (`cantai-snowy.vercel.app`) permanent **308** → `https://boraoke.com/:path*`, path + query preserved. Verified live: `HTTP/1.1 308` → `location: https://boraoke.com/bar-do-ze?x=1`; normal-host traffic not redirected.
@@ -55,7 +55,7 @@ The `cantai*` **localStorage keys** (`cantai_patron_uuid`, `cantai_nickname`, `c
 ## TM follow-up actions (env — TM owns)
 - Set `NEXTAUTH_URL` → `https://boraoke.com` when auth is wired (no auth env exists in the app today; flagged forward).
 - Add `boraoke.com` to Google OAuth authorized JS origins + redirect URIs (when OAuth lands).
-- OG image `/brand/og-image.png` depends on PR #19 (brand-assets) being merged into main for the asset to exist at runtime.
+- OG image `/brand/og-image-pt-BR.png` depends on PR #19 (brand-assets) being merged into main for the asset to exist at runtime.
 
 ## CI
 See PR thread for the verbatim `gh pr checks` output (CI-green contract).

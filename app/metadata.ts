@@ -17,8 +17,9 @@ export const metadata: Metadata = {
   description:
     "A fila de karaokê do seu bar, no celular de cada cliente. Crie a sala, mostre o QR, e todo mundo entra na fila com a mesa marcada. Grátis para começar.",
   applicationName: "Boraoke",
-  // en/es OG variants come with the i18n wave (wave-30: hreflang + locale-aware
-  // OG). For now the default is pt-BR pointed at the pt-BR-first OG image.
+  // Per-locale OG scheme: /brand/og-image-<locale>.png (PR #19). en/es variants
+  // + hreflang/locale-aware selection come with the i18n wave (wave-30). For
+  // now the default is pt-BR pointed at the pt-BR image.
   openGraph: {
     type: "website",
     siteName: "Boraoke",
@@ -29,7 +30,7 @@ export const metadata: Metadata = {
       "A fila de karaokê do seu bar, no celular de cada cliente. Grátis para começar.",
     images: [
       {
-        url: "/brand/og-image.png",
+        url: "/brand/og-image-pt-BR.png",
         width: 1200,
         height: 630,
         alt: "Boraoke",
@@ -41,7 +42,7 @@ export const metadata: Metadata = {
     title: "Boraoke — a fila de karaokê do seu bar",
     description:
       "A fila de karaokê do seu bar, no celular de cada cliente. Grátis para começar.",
-    images: ["/brand/og-image.png"],
+    images: ["/brand/og-image-pt-BR.png"],
   },
   // Favicons come from the App-Router file convention (app/icon.png +
   // app/apple-icon.png), which Next auto-injects the <link> tags for. The
