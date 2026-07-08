@@ -50,6 +50,7 @@ _Last updated: 2026-07-08 (REBRAND SHIPPED — boraoke.com fully live; TL live-u
 | TICKET-40 | Search UX (select-jump + karaoke keyword) | IN PROGRESS | Dev (opus), .worktrees/ticket-40 |
 | TICKET-41 | TV watchdog + embeddable search + advance auth | IN PROGRESS | Dev (opus), .worktrees/ticket-41; folded TL skip-hole fix (screen-token design) |
 | TICKET-43 | Session recovery (local room memory) | IN PROGRESS | Dev (opus), .worktrees/ticket-43; wave-28 sync seam |
+| TICKET-44 | Optional moderation mode | QUEUED (next wave) | TL 2026-07-08: venue-optional song approval before queue entry ("wrong oriented stuff" guard); touches queue POST + admin + patron — launches after 40/41 merge. Related: roadmap content-filter prerequisite for schools/churches venue types |
 | TICKET-30 | i18n pt-BR/en/es + switcher | IN PROGRESS | Dev (opus), .worktrees/ticket-30; REBASES LAST after 40/41/43 |
 | TICKET-33 | Code rebrand + publish metadata | DONE | PR #20 merged; boraoke.com live-verified (title, OG 200, 308 redirect w/ path+query) |
 | (research) | Naming + domain availability | IN PROGRESS | fable agent — cantai.com taken; shortlist w/ whois checks |
