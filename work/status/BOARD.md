@@ -1,6 +1,6 @@
 # cantai — Board
 
-_Last updated: 2026-07-08 (design v2 MERGED; rebrand PR #20 fully gated + ready; PR #19 awaits EN/ES cards; boraoke.com LIVE)_
+_Last updated: 2026-07-08 (REBRAND SHIPPED — boraoke.com fully live; TL live-usage wave running: 40/41/43 + 30-rebases-last)_
 
 ## Needs user (TL)
 
@@ -12,6 +12,10 @@ _Last updated: 2026-07-08 (design v2 MERGED; rebrand PR #20 fully gated + ready;
 - 🟢 key SET in prod (2026-07-07). Still open: quota-increase request (~99 searches/day default). Original note: YouTube Data API v3 key → Vercel env — unblocks TICKET-8 live search. ⚠️ QUOTA REALITY (opus PR #8 finding, binding condition): default quota = 10,000 units/day and each search costs ~101 units → ~99 searches/day TOTAL across ALL venues; one modest bar night ≈ 80% of it. Before provisioning the key: file a YouTube quota-increase request (or accept day-one degraded fallback), and consider the filed follow-up (move search cache + rate limits onto Upstash so caching actually reduces burn).
 
 ## Follow-ups (filed by gates, unscheduled)
+
+- **BINDING for TICKET-28 (accounts/claim): claim-path AC (PR #22 opus)** — the server MUST treat localStorage `claimable`/posted room-id lists as an untrusted claim REQUEST, never ownership evidence; authorize only via the server-registered anon uuid's `identity:{uuid}:rooms` index (TICKET-26) or host-token proof for legacy rooms; sign-out clears device memory (AC4).
+- **TICKET-45 (next slot): advance-auth screen-token + per-room rate limit** — design complete in work/plans/TICKET-41-plan.md (HMAC screen-token, log-only→enforce rollout, e2e drain-helper migration). TL-directed (skip-from-patron hole). Launch after #21/#24 merge.
+- **Paste-submit embeddability warning** (TICKET-41 deferral; after #40 merges — patron-form file).
 
 - **[HIGH] Atomic store RMW (PR #14 opus)** — WATCH/Lua CAS on QueueStore rewrite/removeEntry/reorder + concurrency regression test. Closes the lost-submit window (~0.1-0.3/busy night in bursts, patron-visible+permanent) AND the pre-existing host-op races in one change. First candidate for the next dev slot.
 - **[LOW] Strip patronUuid from public GET /api/queue projection** (griefing lockout via per-uuid limiter) — weigh against patron-page own-row highlighting (may need a hashed marker instead).
@@ -45,8 +49,14 @@ _Last updated: 2026-07-08 (design v2 MERGED; rebrand PR #20 fully gated + ready;
 | TICKET-21 | Atomic store RMW (HIGH) | DONE | PR #16 merged: Lua merge-on-write, opus verified against REAL Upstash (byte-fidelity + races). Lost-submit window closed |
 | TICKET-22 | Roadmap v2 (platform vision) | DONE | PR #15 merged (Reviewer APPROVE + patches; opus-skip docs-only) |
 | TICKET-23 | Design v2 | DONE | PR #18 merged, TL-ratified ("approved, go ahead and build"); 8-wave build order armed |
-| TICKET-33a | Brand asset kit | GATED-READY | PR #19: pt-BR OG done; EN/ES cards blocked on debug-Chrome (TL ⌘Q needed) or TL waiver to ship pt-BR-only |
-| TICKET-33 | Code rebrand + publish metadata | GATED-READY | PR #20: full chain (App Tester launch-review PASS, sonnet+opus APPROVE, R1 salt-guard landed). Merges AFTER #19 (OG file dependency) |
+| TICKET-33a | Brand asset kit | DONE | PR #19 merged (pt-BR, TL-waived en/es); og-image-pt-BR live (200) |
+| TICKET-33c | EN/ES OG cards | PARKED | Asset agent ready; needs TL login to aistudio.google.com in debug-Chrome window |
+| TICKET-40 | Search UX (select-jump + karaoke keyword) | IN PROGRESS | Dev (opus), .worktrees/ticket-40 |
+| TICKET-41 | TV watchdog + embeddable search + advance auth | IN PROGRESS | Dev (opus), .worktrees/ticket-41; folded TL skip-hole fix (screen-token design) |
+| TICKET-43 | Session recovery (local room memory) | IN PROGRESS | Dev (opus), .worktrees/ticket-43; wave-28 sync seam |
+| TICKET-44 | Optional moderation mode | QUEUED (next wave) | TL 2026-07-08: venue-optional song approval before queue entry ("wrong oriented stuff" guard); touches queue POST + admin + patron — launches after 40/41 merge. Related: roadmap content-filter prerequisite for schools/churches venue types |
+| TICKET-30 | i18n pt-BR/en/es + switcher | IN PROGRESS | Dev (opus), .worktrees/ticket-30; REBASES LAST after 40/41/43 |
+| TICKET-33 | Code rebrand + publish metadata | DONE | PR #20 merged; boraoke.com live-verified (title, OG 200, 308 redirect w/ path+query) |
 | (research) | Naming + domain availability | IN PROGRESS | fable agent — cantai.com taken; shortlist w/ whois checks |
 | TICKET-10 | Rotation modes UI (wave 3) | DONE | PR #14 merged: full chain (App Tester ordering proofs, Security fix round + re-audit, sonnet+opus APPROVE; lost-submit race quantified + HIGH atomic-RMW follow-up filed). KICKOFF SCOPE COMPLETE |
 | TICKET-11 | Feedback widget (wave 2) | DONE | PR #11 merged (151/151 on merged tree). Intake-contract condition + Upstash URGENT recorded |
