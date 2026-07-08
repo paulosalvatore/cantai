@@ -1,7 +1,7 @@
 # TICKET-40 — App Test Report
 
-**Verdict: FAIL**
-**Date:** 2026-07-08
+**Verdict: PASS** (re-test after BUG-01 fix, commit 3b5b861 — see "Re-test" section at the end; the original FAIL run is preserved below for the record)
+**Date:** 2026-07-08 (initial run + same-day re-test)
 **Branch:** ticket/40-search-ux
 **Worktree:** .worktrees/ticket-40
 **PR:** #21 (paulosalvatore/boraoke)
@@ -150,3 +150,32 @@ The primary happy paths work correctly: sing-mode karaoke keyword is appended at
 One defect found in the **degraded paste path only**: CTA focus is not transferred after pasting a YouTube link when the search was previously in degraded state. The link resolves correctly and the patron CAN still submit — they just have to tap/scroll to the CTA. Severity is Medium (UX friction in an edge-case path, not a data loss or crash).
 
 **Verdict: FAIL** — returning to Dev for the degraded-paste focus fix before merge.
+
+---
+
+## Re-test — BUG-01 fix (commit 3b5b861)
+
+The Dev fixed TICKET-40-BUG-01 by removing the `onSongChosen` callback entirely and driving the jump-to-CTA from a `useEffect` in `PatronRoom` watching `parsedVideoId` — effects run after React commits, so the CTA is already enabled when `.focus()` fires; a null guard skips selection-clear/post-submit resets. One mechanism for both selection paths.
+
+**Re-test verdict: PASS** — all 4 targeted re-tests + full suites green.
+
+| Check | Verdict | Detail |
+|---|---|---|
+| 4b — Degraded paste → CTA enabled + focused (the failed item) | PASS | CTA `enabled=true, focused=true` after paste-resolve in degraded mode |
+| 1b — Result pick → CTA focused, no auto-submit (mechanism changed, sanity) | PASS | focused=true, no toast |
+| 4e — Normal-mode paste → CTA focused (sanity) | PASS | focused=true |
+| Post-submit reset → no uninvited focus jump | PASS | After submit, `parsedVideoId` resets to null; CTA disabled; activeElement is BODY — the effect's null-guard prevents a re-focus/scroll jump |
+
+**Regression after fix:**
+- Playwright e2e: **30/30 passed** (degraded e2e now asserts `toBeEnabled` AND `toBeFocused` after paste-resolve — regression coverage for the gap)
+- Jest unit: **369/369 passed**
+
+**Re-test evidence:**
+| File | What it proves |
+|---|---|
+| `apptester-retest-4b-degraded-paste-cta-focused-390px.png` | Degraded paste: CTA now enabled + focused (BUG-01 fixed) |
+| `apptester-retest-1b-pick-cta-focused-390px.png` | Result-pick path unregressed under the new effect mechanism |
+
+**Actions / mergeability state:** PR #21 reports `mergeable: CONFLICTING` / `mergeStateStatus: DIRTY` — this is the known CI-suppression cause: the GitHub Actions `ci.yml` runs do not surface on the PR (only Vercel checks show, both green). The branch needs a rebase/merge from main before the Actions checks will run and the PR can merge. All four ci.yml gates were reproduced green locally in their place.
+
+**Final verdict: PASS** — app-level gate cleared; the CONFLICTING mergeability is a branch-hygiene item for the Dev/TM (rebase onto main), not an app defect.
