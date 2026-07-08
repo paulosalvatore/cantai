@@ -20,7 +20,7 @@ All finals in `public/brand/` (web-servable). Engine noted per asset; ChatGPT wa
 | `logo-mark.png` | 1024×558 | gemini | 3 (gpt timeout → gemini w/ fake-checkerboard bg → gemini on plum) | Solid mic + play-cutout mark, gradient fill, on solid `#0D0A14`. |
 | `wordmark.png` | 1024×558 | gemini | 3 (gpt garbled "boaoke" → gemini w/ white sticker outline + fake checkerboard → gemini on plum) | Correct spelling, rounded extra-bold, pink→amber gradient, on solid `#0D0A14`. |
 | `app-icon.png` | 1024×1024 | gemini | 3 (gpt timeout → gpt half-white/broken → gemini) | Mark + soft spotlight glow, ~55% canvas, full-bleed dark plum. Ready for iOS/Android masking. |
-| `og-image.png` | 1200×633 | gemini | 2 (gpt timeout → gemini) | Wordmark + "Bora cantar!" + TV/phone queue illustration, twin stage-light beams. Both texts spelled correctly. Crop 3px height for exact 1200×630. |
+| `og-image-pt-BR.png` | 1200×633 | gemini | 2 (gpt timeout → gemini) | Wordmark + "Bora cantar!" + TV/phone queue illustration, twin stage-light beams. Both texts spelled correctly. Crop 3px height for exact 1200×630. |
 | `tv-idle-poster.png` | 1376×768 | gemini | 1 | Spotlit mic on empty stage, pink/amber wash, bokeh crowd. Zero text as briefed (app renders text). 16:9-ish; upscale/cover-fit to 1920×1080. |
 | `favicon-source.png` | 512×279 | gemini | 1 | One-color solid raspberry mark on plum, no gradient, reads at 16px. Crop square before generating favicon sizes. |
 
@@ -29,7 +29,7 @@ All finals in `public/brand/` (web-servable). Engine noted per asset; ChatGPT wa
 - **Backgrounds:** all assets are baked on solid `#0D0A14` (true transparent PNG output is not reliable from either engine — Gemini paints a *fake* checkerboard when asked for transparency, which is worse). Place them on `--c-bg` surfaces and they blend seamlessly; do NOT place on light backgrounds until a vector/transparent pass exists.
 - **logo-mark / favicon-source:** use for avatars, favicons, loading marks. The favicon-source is deliberately single-color for 16–32px legibility; use the gradient mark ≥ 48px.
 - **wordmark:** header/landing hero on dark surfaces. Pair with the tagline "Bora cantar!" in `--c-text`.
-- **og-image:** `<meta property="og:image">` — crop to exactly 1200×630 at integration time.
+- **og-image (per-locale scheme):** social/OG cards are per-language, named `og-image-<locale>.png` (BCP-47 tag). Current: `og-image-pt-BR.png` (tagline "Bora cantar!"). Next up: `og-image-en.png` ("Let's sing!") and `og-image-es.png` ("¡A cantar!"); future languages follow the same `og-image-<locale>.png` pattern — identical composition, localized tagline only. Serve via `<meta property="og:image">`; crop to exactly 1200×630 at integration time.
 - **tv-idle-poster:** `/tv` idle backdrop under a dark scrim; center/lower-third kept darker by design so the join QR + URL overlay stays readable.
 - **Voice:** "boraoke" always lowercase in the wordmark; sentence case "Boraoke" acceptable in running prose.
 
