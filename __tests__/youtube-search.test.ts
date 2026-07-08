@@ -145,6 +145,9 @@ describe("searchYouTube (injected fetch — never hits the network)", () => {
     ]);
     // Two endpoints hit, key present, correct filter params on search.
     expect(calls[0]).toContain("videoEmbeddable=true");
+    // TICKET-41: syndication-blocked videos refuse to play on the venue TV
+    // even when embeddable; both filters require type=video.
+    expect(calls[0]).toContain("videoSyndicated=true");
     expect(calls[0]).toContain("type=video");
     expect(calls[0]).toContain("regionCode=BR");
     expect(calls[0]).toContain("safeSearch=moderate");

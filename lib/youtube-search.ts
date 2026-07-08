@@ -160,6 +160,12 @@ export async function searchYouTube(
   searchUrl.searchParams.set("part", "snippet");
   searchUrl.searchParams.set("type", "video");
   searchUrl.searchParams.set("videoEmbeddable", "true");
+  // TICKET-41: only videos playable OUTSIDE youtube.com — a syndication-blocked
+  // video passes videoEmbeddable yet still refuses to play on the venue TV.
+  // Both filters require type=video (set above). Paste-link entries bypass
+  // search and can't be pre-filtered — the TV watchdog's onError path covers
+  // them at play time.
+  searchUrl.searchParams.set("videoSyndicated", "true");
   searchUrl.searchParams.set("safeSearch", SEARCH_DEFAULTS.safeSearch);
   searchUrl.searchParams.set("regionCode", regionCode);
   searchUrl.searchParams.set("maxResults", String(maxResults));

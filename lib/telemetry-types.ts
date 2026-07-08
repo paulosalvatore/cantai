@@ -26,7 +26,7 @@ export const TELEMETRY_EVENTS = [
   "patron_joined", // a patron joins a room (#9 join flow / beacon)
   "song_queued", // props: kind ("search" | "paste"), mode
   "song_played", // a queue entry is promoted to now-playing
-  "song_skipped", // props: reason ("host" | "noshow")
+  "song_skipped", // props: reason ("host" | "noshow" | "unplayable" — TICKET-41 watchdog)
   // ── host behavior (proxies priority-tools demand) ──
   "host_action", // props: action ("skip" | "pause" | "resume" | "remove" | "reorder")
   // ── friction markers ──

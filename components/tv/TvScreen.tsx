@@ -4,6 +4,14 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import type { QueueEntry } from "@/lib/store";
 import QrCode from "@/components/QrCode";
 import styles from "./tv.module.css";
+import {
+  isFatalPlayerError,
+  createStallState,
+  stallTick,
+  bootstrapRetryDelayMs,
+  BOOTSTRAP_READY_TIMEOUT_MS,
+  type StallState,
+} from "./watchdog";
 
 declare global {
   interface Window {
@@ -16,6 +24,7 @@ declare global {
           events?: {
             onReady?: (e: { target: YTPlayer }) => void;
             onStateChange?: (e: { data: number }) => void;
+            onError?: (e: { data: number }) => void;
           };
         }
       ) => YTPlayer;
@@ -35,6 +44,10 @@ interface YTPlayer {
   loadVideoById(videoId: string): void;
   stopVideo(): void;
   destroy(): void;
+  getCurrentTime?(): number;
+  getPlayerState?(): number;
+  seekTo?(seconds: number, allowSeekAhead: boolean): void;
+  playVideo?(): void;
 }
 
 /** Minimal WakeLock typings — the lib.dom versions are still flaky across TS targets. */
@@ -45,6 +58,10 @@ interface WakeLockSentinelLike {
 
 const POLL_INTERVAL = 3000;
 const CHROME_HIDE_MS = 4000;
+/** Watchdog getCurrentTime() sampling cadence (TICKET-41). */
+const WATCHDOG_POLL_MS = 3000;
+/** How long the pt-BR "pulando vídeo indisponível" notice stays up. */
+const SKIP_NOTICE_MS = 4000;
 
 export default function TvScreen({
   poweredByFooter,
@@ -66,12 +83,20 @@ export default function TvScreen({
   const [joinUrl, setJoinUrl] = useState("");
   const [reorderNotice, setReorderNotice] = useState("");
   const [micCallSecs, setMicCallSecs] = useState<number | null>(null);
+  const [skipNotice, setSkipNotice] = useState(false);
+  // Bumped by the watchdog's `recreate` rung so the player effect re-runs
+  // deterministically and rebuilds the destroyed player (TICKET-41).
+  const [playerEpoch, setPlayerEpoch] = useState(0);
   const playerRef = useRef<YTPlayer | null>(null);
   const playerDivRef = useRef<HTMLDivElement>(null);
   const currentVideoIdRef = useRef<string | null>(null);
   const chromeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prevModeRef = useRef<string | null>(null);
   const micCallEntryRef = useRef<string | null>(null);
+  // ---- TICKET-41 watchdog refs (hygiene: one timer per concern, all cleared) ----
+  const stallStateRef = useRef<StallState>(createStallState(Date.now()));
+  const skipNoticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const skippingRef = useRef(false);
 
   /** Length of the TV "get to the mic" no-show call window (spec §no-shows). */
   const MIC_CALL_SECONDS = 30;
@@ -90,24 +115,73 @@ export default function TvScreen({
   // Human-facing short URL (host + room path) for the printed line under the QR.
   const joinLabel = joinHost ? `${joinHost}${roomId ? `/${roomId}` : ""}` : "boraoke.com";
 
-  // ---- Load YouTube IFrame API ----
+  // ---- Load YouTube IFrame API (TICKET-41: retry with backoff, never sit dead) ----
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    if ((window as unknown as { YT?: unknown }).YT) {
+    if ((window as unknown as { YT?: { Player?: unknown } }).YT?.Player) {
       setYtReady(true);
       return;
     }
 
-    window.onYouTubeIframeAPIReady = () => setYtReady(true);
+    // Timer hygiene (TICKET-18 patterns): at most ONE outstanding timer per
+    // concern (ready-timeout, retry), both cleared on unmount.
+    let disposed = false;
+    let attempt = 0;
+    let readyTimer: ReturnType<typeof setTimeout> | null = null;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
 
-    const script = document.createElement("script");
-    script.src = "https://www.youtube.com/iframe_api";
-    script.async = true;
-    document.head.appendChild(script);
+    const scheduleRetry = () => {
+      if (disposed || retryTimer) return;
+      if (readyTimer) {
+        clearTimeout(readyTimer);
+        readyTimer = null;
+      }
+      // Drop the failed script tag so the re-injection actually refetches.
+      document
+        .querySelectorAll('script[data-boraoke="yt-iframe-api"]')
+        .forEach((el) => el.remove());
+      attempt += 1;
+      retryTimer = setTimeout(() => {
+        retryTimer = null;
+        inject();
+      }, bootstrapRetryDelayMs(attempt));
+    };
+
+    const inject = () => {
+      if (disposed) return;
+      if ((window as unknown as { YT?: { Player?: unknown } }).YT?.Player) {
+        setYtReady(true);
+        return;
+      }
+      window.onYouTubeIframeAPIReady = () => {
+        if (disposed) return;
+        if (readyTimer) {
+          clearTimeout(readyTimer);
+          readyTimer = null;
+        }
+        setYtReady(true);
+      };
+
+      const script = document.createElement("script");
+      script.src = "https://www.youtube.com/iframe_api";
+      script.async = true;
+      script.dataset.boraoke = "yt-iframe-api";
+      script.onerror = scheduleRetry; // network refused the script outright
+      document.head.appendChild(script);
+
+      // Script may load but the API may never call ready (half-dead wifi):
+      // treat silence as failure and retry.
+      readyTimer = setTimeout(scheduleRetry, BOOTSTRAP_READY_TIMEOUT_MS);
+    };
+
+    inject();
 
     return () => {
-      // Leave the script tag; removing it causes issues if player re-mounts
+      disposed = true;
+      if (readyTimer) clearTimeout(readyTimer);
+      if (retryTimer) clearTimeout(retryTimer);
+      // Leave any loaded script tag; removing it causes issues if player re-mounts
     };
   }, []);
 
@@ -138,9 +212,16 @@ export default function TvScreen({
   }, [fetchQueue]);
 
   // ---- Advance queue on the server and tell player to load the next video ----
-  const advance = useCallback(async () => {
+  // `reason` (TICKET-41): forwarded so the server can emit the existing
+  // `song_skipped` event with a reason prop (watchdog skips stay observable).
+  const advance = useCallback(async (reason?: "unplayable") => {
     try {
-      await fetch(`/api/queue/advance${roomQuery}`, { method: "POST" });
+      const reasonQuery = reason
+        ? `${roomQuery ? "&" : "?"}reason=${reason}`
+        : "";
+      await fetch(`/api/queue/advance${roomQuery}${reasonQuery}`, {
+        method: "POST",
+      });
       const res = await fetch(`/api/queue${roomQuery}`);
       if (!res.ok) return;
       const data = await res.json();
@@ -152,6 +233,34 @@ export default function TvScreen({
     }
   }, [roomQuery]);
 
+  // ---- TICKET-41: skip a video that will never play here (onError / ladder top) ----
+  const skipUnplayable = useCallback(async () => {
+    if (skippingRef.current) return; // one skip in flight, ever
+    skippingRef.current = true;
+    try {
+      setSkipNotice(true);
+      if (skipNoticeTimerRef.current) clearTimeout(skipNoticeTimerRef.current);
+      skipNoticeTimerRef.current = setTimeout(
+        () => setSkipNotice(false),
+        SKIP_NOTICE_MS
+      );
+      const nextVideoId = await advance("unplayable");
+      stallStateRef.current = createStallState(Date.now());
+      if (nextVideoId && playerRef.current) {
+        currentVideoIdRef.current = nextVideoId;
+        try {
+          playerRef.current.loadVideoById(nextVideoId);
+        } catch {
+          // player wedged — the stall ladder's recreate rung will handle it
+        }
+      } else if (!nextVideoId) {
+        currentVideoIdRef.current = null;
+      }
+    } finally {
+      skippingRef.current = false;
+    }
+  }, [advance]);
+
   // ---- Create/update YT player when ytReady and queue changes ----
   useEffect(() => {
     if (!ytReady || !playerDivRef.current) return;
@@ -160,7 +269,11 @@ export default function TvScreen({
 
     if (!nowVideoId) {
       if (playerRef.current) {
-        playerRef.current.stopVideo();
+        try {
+          playerRef.current.stopVideo();
+        } catch {
+          // wedged player with an empty queue — nothing to watch
+        }
       }
       currentVideoIdRef.current = null;
       return;
@@ -170,39 +283,124 @@ export default function TvScreen({
       // Player already exists — only load new video if it changed
       if (currentVideoIdRef.current !== nowVideoId) {
         currentVideoIdRef.current = nowVideoId;
-        playerRef.current.loadVideoById(nowVideoId);
+        stallStateRef.current = createStallState(Date.now());
+        try {
+          playerRef.current.loadVideoById(nowVideoId);
+        } catch {
+          // wedged — stall ladder escalates to recreate
+        }
       }
       return;
     }
 
-    // Create player
+    // Create player. Handlers are attached ONCE at creation (TICKET-18: no
+    // listener accumulation); creation is try/caught so a failed constructor
+    // (half-loaded API on venue wifi) retries on the next effect run instead
+    // of crashing the TV (TICKET-41c).
     currentVideoIdRef.current = nowVideoId;
-    playerRef.current = new window.YT.Player(playerDivRef.current, {
-      videoId: nowVideoId,
-      playerVars: {
-        autoplay: 1,
-        controls: 1,
-        rel: 0,
-        playsinline: 1,
-      },
-      events: {
-        onReady: (e) => {
-          (e.target as unknown as { playVideo: () => void }).playVideo?.();
+    stallStateRef.current = createStallState(Date.now());
+    try {
+      playerRef.current = new window.YT.Player(playerDivRef.current, {
+        videoId: nowVideoId,
+        playerVars: {
+          autoplay: 1,
+          controls: 1,
+          rel: 0,
+          playsinline: 1,
         },
-        onStateChange: async (e) => {
-          if (e.data === window.YT.PlayerState.ENDED) {
-            const nextVideoId = await advance();
-            if (nextVideoId && playerRef.current) {
-              currentVideoIdRef.current = nextVideoId;
-              playerRef.current.loadVideoById(nextVideoId);
-            } else {
-              currentVideoIdRef.current = null;
+        events: {
+          onReady: (e) => {
+            (e.target as unknown as { playVideo: () => void }).playVideo?.();
+          },
+          onStateChange: async (e) => {
+            if (e.data === window.YT.PlayerState.ENDED) {
+              const nextVideoId = await advance();
+              stallStateRef.current = createStallState(Date.now());
+              if (nextVideoId && playerRef.current) {
+                currentVideoIdRef.current = nextVideoId;
+                playerRef.current.loadVideoById(nextVideoId);
+              } else {
+                currentVideoIdRef.current = null;
+              }
             }
-          }
+          },
+          // TICKET-41a: bad/removed video (2/5/100) or embedding disabled
+          // (101/150) → pt-BR notice + auto-advance. Non-fatal codes are left
+          // to the stall ladder.
+          onError: (e) => {
+            if (isFatalPlayerError(e.data)) void skipUnplayable();
+          },
         },
-      },
-    });
-  }, [ytReady, queue, advance]);
+      });
+    } catch {
+      playerRef.current = null;
+      currentVideoIdRef.current = null; // retry cleanly on the next run
+    }
+  }, [ytReady, queue, advance, skipUnplayable, playerEpoch]);
+
+  // ---- TICKET-41b: stall watchdog — when a video SHOULD be playing, poll
+  // getCurrentTime(); no progress over the window walks the escalation ladder
+  // (replay → reload → recreate → advance). One interval, cleared on unmount.
+  useEffect(() => {
+    if (!ytReady) return;
+    const t = setInterval(() => {
+      const player = playerRef.current;
+      const videoId = currentVideoIdRef.current;
+      if (!player || !videoId || skippingRef.current) return;
+
+      // A wedged player (getter throws) reads as null → counts as no-progress.
+      let playerState: number | null = null;
+      let currentTime: number | null = null;
+      try {
+        playerState = player.getPlayerState?.() ?? null;
+      } catch {}
+      try {
+        currentTime = player.getCurrentTime?.() ?? null;
+      } catch {}
+
+      const { state, action } = stallTick(stallStateRef.current, {
+        playerState,
+        currentTime,
+        now: Date.now(),
+        states: window.YT.PlayerState,
+      });
+      stallStateRef.current = state;
+
+      switch (action) {
+        case "replay":
+          try {
+            player.seekTo?.(currentTime ?? 0, true);
+            player.playVideo?.();
+          } catch {}
+          break;
+        case "reload":
+          try {
+            player.loadVideoById(videoId);
+          } catch {}
+          break;
+        case "recreate":
+          try {
+            player.destroy();
+          } catch {}
+          playerRef.current = null;
+          currentVideoIdRef.current = null;
+          setPlayerEpoch((n) => n + 1); // deterministic rebuild via the player effect
+          break;
+        case "advance":
+          void skipUnplayable();
+          break;
+        // "none": healthy or still inside the window
+      }
+    }, WATCHDOG_POLL_MS);
+    return () => clearInterval(t);
+  }, [ytReady, skipUnplayable]);
+
+  // Skip-notice timer hygiene: cleared on unmount (TICKET-18 pattern).
+  useEffect(() => {
+    return () => {
+      if (skipNoticeTimerRef.current) clearTimeout(skipNoticeTimerRef.current);
+    };
+  }, []);
 
   // ---- Fullscreen (AC2): user-gesture affordance + `F` key; Esc exits natively ----
   const requestAppFullscreen = useCallback(() => {
@@ -382,6 +580,11 @@ export default function TvScreen({
           {reorderNotice && (
             <div className={styles.reorderNotice} data-testid="tv-reorder-toast" role="status">
               {reorderNotice}
+            </div>
+          )}
+          {skipNotice && (
+            <div className={styles.skipNotice} data-testid="tv-skip-notice" role="status">
+              Pulando vídeo indisponível…
             </div>
           )}
 
