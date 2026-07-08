@@ -23,9 +23,11 @@
 
 ## Self-verification (proof, not prose)
 - **Unit:** `npx jest` → **382 passed / 27 suites** (incl. i18n-locales, i18n-completeness [CI gate: key + ICU placeholder parity], room-language, metadata OG fallback).
+- **Rotation-engine:** `node --test` (packages/rotation-engine) → **59 passed**.
 - **Build:** `npm run build` → GREEN; `/api/host/language` compiles; all routes build.
-- **E2E:** `PORT=3230 npx playwright test language-switcher` → **4 passed** (switch→persist→no-URL-change; en-US Accept-Language→EN; es-MX→ES). Full e2e suite run pending (in progress at report time; will paste result).
-- **verify-green-local.sh:** to run before gate request.
+- **E2E:** full suite `CI=1 PORT=3330 npx playwright test` → **22 passed (6.5m)** — includes the 4 new language-switcher tests (switch→persist→no-URL-change; en-US Accept-Language→EN; es-MX→ES; `<html lang>` tracking). An earlier run was interrupted by a concurrent `npm ci` (not a real failure); the clean re-run is green.
+- **`npm ci`** with the updated lockfile → clean (only pre-existing advisory audit warnings).
+- **Note on the CI-green gate:** boraoke has no framework `verify-green-local.sh`; the repo gate is `.github/workflows/ci.yml` (rotation-engine `node --test` + build + `npm test` + Playwright e2e). All four verified locally green above.
 
 ## Contested-components checklist (FINAL REBASE — after 40/41/43 merge)
 Translations already authored in catalogs; rebase = pure `t()` wiring.
