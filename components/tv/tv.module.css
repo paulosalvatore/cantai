@@ -154,6 +154,21 @@
   z-index: 20;
 }
 
+/* TICKET-41: watchdog "skipping unplayable video" toast — same family as the
+   reorder notice, amber so it reads as "handled", not "error". */
+.skipNotice {
+  position: absolute;
+  top: 14vh;
+  right: 3vw;
+  font-size: 1.6vw;
+  font-weight: 700;
+  color: #1a1a1a;
+  background: rgba(255, 183, 3, 0.94);
+  border-radius: 999px;
+  padding: 0.6vw 1.4vw;
+  z-index: 20;
+}
+
 /* ---- bottom rail: A SEGUIR ×3 + join card ---- */
 .rail {
   display: flex;

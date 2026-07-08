@@ -1,0 +1,10 @@
+PASS __tests__/host-stats.test.ts
+PASS __tests__/telemetry-track.test.ts
+PASS __tests__/youtube.test.ts
+PASS __tests__/youtube-search.test.ts
+
+Test Suites: 25 passed, 25 total
+Tests:       380 passed, 380 total
+Snapshots:   0 total
+Time:        2.027 s
+Ran all test suites.

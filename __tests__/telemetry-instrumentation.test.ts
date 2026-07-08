@@ -109,6 +109,59 @@ describe("queue advance instrumentation (C1: the ONE song_played source)", () =>
     await flush();
     expect(await telemetryStore.listRange(TODAY, TODAY)).toHaveLength(0);
   });
+
+  // TICKET-41: the TV watchdog forwards reason=unplayable when it skips a
+  // video that can't play (onError 2/5/100/101/150 or a stalled-out player).
+  it("reason=unplayable additionally emits song_skipped for the SKIPPED head", async () => {
+    await queuePost(queueReq()); // head — the unplayable one
+    await queuePost(queueReq({ patronUuid: "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa" }));
+    await telemetryStore.clear();
+    const res = await advancePost(
+      new NextRequest(
+        "http://127.0.0.1:3012/api/queue/advance?room=default&reason=unplayable",
+        { method: "POST" },
+      ),
+    );
+    expect(res.status).toBe(200);
+    await flush();
+    const events = await telemetryStore.listRange(TODAY, TODAY);
+    const skippedEvt = events.find((x) => x.event === "song_skipped");
+    expect(skippedEvt).toMatchObject({
+      event: "song_skipped",
+      roomId: "default",
+      uuid: UUID, // the entry that was skipped, not the promoted one
+      props: { reason: "unplayable" },
+    });
+    // song_played for the promoted entry is unchanged (C1: still ONE source).
+    expect(events.some((x) => x.event === "song_played")).toBe(true);
+  });
+
+  it("an unknown reason is ignored (allowlist): no song_skipped", async () => {
+    await queuePost(queueReq());
+    await telemetryStore.clear();
+    const res = await advancePost(
+      new NextRequest(
+        "http://127.0.0.1:3012/api/queue/advance?room=default&reason=<script>",
+        { method: "POST" },
+      ),
+    );
+    expect(res.status).toBe(200);
+    await flush();
+    const events = await telemetryStore.listRange(TODAY, TODAY);
+    expect(events.some((x) => x.event === "song_skipped")).toBe(false);
+  });
+
+  it("reason=unplayable on an EMPTY queue emits no song_skipped", async () => {
+    const res = await advancePost(
+      new NextRequest(
+        "http://127.0.0.1:3012/api/queue/advance?room=default&reason=unplayable",
+        { method: "POST" },
+      ),
+    );
+    expect(res.status).toBe(200);
+    await flush();
+    expect(await telemetryStore.listRange(TODAY, TODAY)).toHaveLength(0);
+  });
 });
 
 describe("rooms POST instrumentation", () => {
