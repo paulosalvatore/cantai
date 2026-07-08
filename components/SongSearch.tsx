@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { parseYouTubeVideoId } from "@/lib/youtube";
+import { augmentQuery } from "@/lib/search-query";
+import type { Mode } from "@/lib/store";
 import type { SearchResult } from "@/lib/youtube-search";
 
 const DEBOUNCE_MS = 400;
@@ -14,8 +16,19 @@ export interface SongSelection {
 
 interface SongSearchProps {
   patronUuid: string;
+  /**
+   * Entry mode (TICKET-40). In "sing" mode the free-text query is augmented with
+   * the "karaoke" keyword before hitting /api/search; other modes search raw.
+   * Pasted YouTube links are never affected.
+   */
+  mode: Mode;
   /** Called with the current selection, or null when the selection is cleared. */
   onSelect: (selection: SongSelection | null) => void;
+  /**
+   * Called after a result is picked or a pasted link resolves, so the parent can
+   * jump the patron to the submit CTA (scroll into view + focus). TICKET-40 §1.
+   */
+  onSongChosen?: () => void;
 }
 
 const FALLBACK_COPY = "Busca indisponível — cola o link do YouTube";
@@ -26,7 +39,7 @@ const FALLBACK_COPY = "Busca indisponível — cola o link do YouTube";
  *   - A pasted YouTube URL/ID → resolved locally via parseYouTubeVideoId, NO API call.
  * Degraded (no key / quota / error) shows the fallback copy; paste-link still works.
  */
-export default function SongSearch({ patronUuid, onSelect }: SongSearchProps) {
+export default function SongSearch({ patronUuid, mode, onSelect, onSongChosen }: SongSearchProps) {
   const [input, setInput] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
@@ -49,7 +62,9 @@ export default function SongSearch({ patronUuid, onSelect }: SongSearchProps) {
       setDegraded(false);
       setRateLimitMsg("");
       try {
-        const params = new URLSearchParams({ q, uuid: patronUuid || "anon" });
+        // Mode-aware augmentation (TICKET-40): sing → append "karaoke", others → raw.
+        const augmented = augmentQuery(q, mode);
+        const params = new URLSearchParams({ q: augmented, uuid: patronUuid || "anon" });
         const res = await fetch(`/api/search?${params.toString()}`);
         if (seq !== seqRef.current) return; // a newer query superseded this one
 
@@ -75,7 +90,7 @@ export default function SongSearch({ patronUuid, onSelect }: SongSearchProps) {
         if (seq === seqRef.current) setLoading(false);
       }
     },
-    [patronUuid],
+    [patronUuid, mode],
   );
 
   // React to input changes: resolve pasted links locally, else debounce a search.
@@ -113,6 +128,8 @@ export default function SongSearch({ patronUuid, onSelect }: SongSearchProps) {
       // Auto-select the resolved link.
       setSelectedId(pastedId);
       onSelect({ videoId: pastedId });
+      // A pasted link IS a song choice — jump the patron to the submit CTA.
+      onSongChosen?.();
       return;
     }
 
@@ -132,7 +149,7 @@ export default function SongSearch({ patronUuid, onSelect }: SongSearchProps) {
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-    // onSelect/clearSelection are stable via useCallback in the parent contract.
+    // onSelect/clearSelection/onSongChosen are stable via useCallback in the parent contract.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [input, runSearch]);
 
@@ -142,6 +159,8 @@ export default function SongSearch({ patronUuid, onSelect }: SongSearchProps) {
       videoId: r.videoId,
       title: r.title && r.title !== "Link do YouTube" ? r.title : undefined,
     });
+    // Picking a result IS a song choice — jump the patron to the submit CTA.
+    onSongChosen?.();
   }
 
   return (

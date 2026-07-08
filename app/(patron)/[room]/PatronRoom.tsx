@@ -51,6 +51,9 @@ export default function PatronRoom({
   const [reorderNotice, setReorderNotice] = useState("");
   const prevModeRef = useRef<RoomMode | null>(null);
 
+  // Add-to-queue CTA — jumped into view + focused once a song is chosen (TICKET-40 §1).
+  const submitBtnRef = useRef<HTMLButtonElement | null>(null);
+
   const nickKey = `cantai:${roomId}:nick`;
   const tableKey = `cantai:${roomId}:table`;
 
@@ -119,6 +122,21 @@ export default function PatronRoom({
     if (sel?.title) {
       setTitle((prev) => (prev.trim() ? prev : sel.title!));
     }
+  }, []);
+
+  // TICKET-40 §1: once a song is chosen (result picked or pasted link resolved),
+  // remove the hunt for the CTA — scroll it into view AND focus it, WITHOUT
+  // auto-submitting. On phones the CTA sits below the fold, so we center it above
+  // the keyboard fold (block:"center") and focus without a second competing scroll
+  // (preventScroll:true). Deferred a tick so the CTA has re-rendered (it only
+  // mounts/enables once parsedVideoId is set) before we scroll to it.
+  const handleSongChosen = useCallback(() => {
+    requestAnimationFrame(() => {
+      const btn = submitBtnRef.current;
+      if (!btn) return;
+      btn.scrollIntoView({ block: "center", behavior: "smooth" });
+      btn.focus({ preventScroll: true });
+    });
   }, []);
 
   function saveNickname() {
@@ -257,7 +275,13 @@ export default function PatronRoom({
       <section style={{ background: "var(--surface)", borderRadius: "var(--radius)", padding: "1.25rem", marginBottom: "2rem" }}>
         <h2 style={{ fontSize: "1.1rem", marginBottom: "1rem" }}>Add a song</h2>
         <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-          <SongSearch key={searchKey} patronUuid={patronUuid} onSelect={handleSelect} />
+          <SongSearch
+            key={searchKey}
+            patronUuid={patronUuid}
+            mode={mode}
+            onSelect={handleSelect}
+            onSongChosen={handleSongChosen}
+          />
           {parsedVideoId && (
             <p style={{ fontSize: "0.8rem", color: "#4ade80" }}>✓ Selected: {parsedVideoId}</p>
           )}
@@ -301,7 +325,12 @@ export default function PatronRoom({
           {submitError && <p style={{ color: "var(--accent)", fontSize: "0.875rem" }}>{submitError}</p>}
           {submitSuccess && <p style={{ color: "#4ade80", fontSize: "0.875rem" }}>✓ Song added to the queue!</p>}
 
-          <button className="btn-primary" type="submit" disabled={submitting || !parsedVideoId}>
+          <button
+            ref={submitBtnRef}
+            className="btn-primary"
+            type="submit"
+            disabled={submitting || !parsedVideoId}
+          >
             {submitting ? "Adding…" : "Add to queue"}
           </button>
         </form>
