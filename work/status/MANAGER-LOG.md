@@ -44,3 +44,16 @@
 - Filed HIGH follow-up: atomic store RMW (lost-submit window + host-op races). Other follow-ups on board.
 - All worktrees cleaned (ticket-10 last); repo at main + none.
 - Standing needs-user: 🔴 Upstash provisioning (durability), 🟡 HOST_TOKEN env, 🟡 YouTube key + quota increase, GitHub billing (only if repo goes private again).
+
+## 2026-07-08 — COMPACT CHECKPOINT (session 2026-07-05-session-003, pre-restart)
+
+**Resume protocol for the next TM context: run tm-resume; this entry + BOARD.md are the source of truth.**
+
+State at checkpoint:
+- Product: boraoke (ex-cantai). GitHub repo paulosalvatore/boraoke (PUBLIC); LOCAL CHECKOUT STILL /Users/paulosalvatore/Documents/GitHub/cantai (folder rename pending — do it only when NO worktrees/agents active, then `vercel link` again and update framework board note).
+- Live: https://boraoke.com (DNS+SSL live, 308 canonical from cantai-snowy.vercel.app). All prod env vars set (Upstash, YouTube key, Google OAuth pair, NEXTAUTH_SECRET/URL→boraoke.com, HOST_TOKEN).
+- Merged: 18 PRs (#1–#18 arc: full PMF set + P0 fixes + atomic RMW + roadmap v2 + design v2).
+- IN FLIGHT at checkpoint: (a) git-ops agent merging PR #19 (brand, pt-BR-waived) then PR #20 (code rebrand, fully gated incl. R1) + live verification; (b) asset agent generating EN/ES OG cards → new PR ticket/33c-og-locales. If these completed, expect: boraoke branding live, og-image-pt-BR resolving, a small 33c PR awaiting trivial merge.
+- NEXT UP after rebrand lands (all specs on main): wave 4 = TICKET-24 hardening batch + TICKET-25 telemetry completions/deflake (parallel, disjoint); then TICKET-26 anon identity registry → 27 Turnstile → 28 Google-login host accounts; design build waves per work/design/design-handoff-v2.md (29 theming → 30 i18n → 31 admin v2 → 32 venue types). Roadmap: work/roadmap.md (v2). Wave rules/ownership in the roadmap + design handoff.
+- TL pending: YouTube quota form (text at work/youtube-quota-form.md, opened for TL); Google OAuth console add boraoke.com origins+redirect; framework inbox has asset-gen port-override + merge=union notes.
+- House specifics that bite: event-log jsonl conflicts on EVERY parallel PR (union-resolve; merge=union gitattributes still pending as TICKET-24 item); gh -R paulosalvatore/boraoke; CI won't run on CONFLICTING PRs; debug-Chrome for assets on 9222 (profile ~/chrome-debug-assets, gemini engine, gpt unusable); memory-store resets per-route-compile in next dev (warmUp before seeding in e2e).
