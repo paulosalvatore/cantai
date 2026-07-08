@@ -1,6 +1,6 @@
 # cantai — Board
 
-_Last updated: 2026-07-08 (REBRAND SHIPPED — boraoke.com fully live; TL live-usage wave running: 40/41/43 + 30-rebases-last)_
+_Last updated: 2026-07-08 (21 PRs merged; 40+43 live; 41 in review; 30 sweeps last; 45/44 queued)_
 
 ## Needs user (TL)
 
@@ -51,9 +51,9 @@ _Last updated: 2026-07-08 (REBRAND SHIPPED — boraoke.com fully live; TL live-u
 | TICKET-23 | Design v2 | DONE | PR #18 merged, TL-ratified ("approved, go ahead and build"); 8-wave build order armed |
 | TICKET-33a | Brand asset kit | DONE | PR #19 merged (pt-BR, TL-waived en/es); og-image-pt-BR live (200) |
 | TICKET-33c | EN/ES OG cards | PARKED | Asset agent ready; needs TL login to aistudio.google.com in debug-Chrome window |
-| TICKET-40 | Search UX (select-jump + karaoke keyword) | IN PROGRESS | Dev (opus), .worktrees/ticket-40 |
+| TICKET-40 | Search UX (select-jump + karaoke keyword) | DONE | PR #21 merged (App Tester FAIL→fix→PASS focus race; opus product judgments recorded) |
 | TICKET-41 | TV watchdog + embeddable search + advance auth | IN PROGRESS | Dev (opus), .worktrees/ticket-41; folded TL skip-hole fix (screen-token design) |
-| TICKET-43 | Session recovery (local room memory) | IN PROGRESS | Dev (opus), .worktrees/ticket-43; wave-28 sync seam |
+| TICKET-43 | Session recovery (local room memory) | DONE | PR #22 merged (probe bounded top-3; claim-path AC binding for TICKET-28 recorded) |
 | TICKET-44 | Optional moderation mode | QUEUED (next wave) | TL 2026-07-08: venue-optional song approval before queue entry ("wrong oriented stuff" guard); touches queue POST + admin + patron — launches after 40/41 merge. Related: roadmap content-filter prerequisite for schools/churches venue types |
 | TICKET-30 | i18n pt-BR/en/es + switcher | IN PROGRESS | Dev (opus), .worktrees/ticket-30; REBASES LAST after 40/41/43 |
 | TICKET-33 | Code rebrand + publish metadata | DONE | PR #20 merged; boraoke.com live-verified (title, OG 200, 308 redirect w/ path+query) |
