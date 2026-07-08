@@ -1,0 +1,191 @@
+# Review report — TICKET-43: recoverable sessions (local room memory + host-session recovery)
+
+- **PR:** paulosalvatore/boraoke #22
+- **Branch:** ticket/43-session-recovery
+- **Reviewer:** Reviewer agent (sonnet pass + opus judgment)
+- **Date:** 2026-07-08
+- **Verdict:** REQUEST-CHANGES (1 blocking — probe bounding; 1 gate clarification)
+
+---
+
+## Gate preconditions
+
+| Gate | Status |
+|---|---|
+| App Tester PASS | CONFIRMED — comment on PR #22 by paulosalvatore; report at work/reports/testing/TICKET-43-app-test.md on branch |
+| Security | TM-waived N/A-by-content. Assessment: waiver is sound — this is client-side localStorage only; the load-bearing invariant (host code never persisted) is type-forbidden + defensively stripped + test-asserted + App-Tester-verified raw localStorage inspection. No attack surface arises from reading an existing endpoint under the host's own cookie. Waiver accepted. |
+| CI (verify-green-local.sh) | boraoke does NOT have a verify-green-local.sh / local-Docker gate. The gate substrate for this repo is the GitHub Actions workflow (.github/workflows/ci.yml: npm ci → rotation-engine node --test → npm run build → npm test → playwright test:e2e). Dev claims match what I independently ran: 371/371 unit, build clean, e2e 30/31. The 1 failure (feedback.spec.ts) is pre-existing — confirmed: feedback.spec.ts is byte-identical between main and ticket/43-session-recovery (diff returned empty). The gate is met to the extent possible for this repo; the reviewer's own local run of `npm test` returned 371 passed, 25 suites, 0 failed. |
+
+---
+
+## What I checked
+
+### 1. Tests — independently run
+
+Ran on ticket-43 worktree (`npm ci` already done):
+
+```
+npm test (ticket-43 worktree):
+  Test Suites: 25 passed, 25 total
+  Tests:       371 passed, 371 total
+  Time:        1.353 s
+```
+
+`npm test -- --testPathPattern=room-memory`:
+```
+PASS __tests__/room-memory.test.ts
+  add ✓ × 3
+  dedupe ✓ × 3
+  order ✓ × 2
+  cap ✓ × 1
+  forget ✓ × 2
+  resilience ✓ × 4
+  sync seam ✓ × 1
+  SECURITY INVARIANT — never stores host code ✓ × 2
+  17 passed, 0.223s
+```
+
+`npm run build`: clean (type-check passes, route table emitted, no errors).
+
+The e2e was not re-run by this reviewer locally (needs a running server at port 3043). I relied on the App Tester's verified result (30/31, feedback.spec.ts pre-existing) which is confirmed by the byte-identical spec file check.
+
+**Pre-existing failure confirmation:** `diff e2e/feedback.spec.ts .worktrees/ticket-43/e2e/feedback.spec.ts` returned empty — the file is byte-identical between main and the PR branch. The failure predates this PR. CONFIRMED.
+
+### 2. lib/room-memory.ts quality review
+
+**Schema versioning (cantai_rooms_v1):** The `_v1` suffix is a correct forward-looking convention. There is no migration story for v2 in this PR — but none is needed yet. The `claimable` field was added specifically to avoid a v1→v2 migration when accounts land (the accounts doc, I-2, uses uuid→account link at read time, not a data rewrite). The comment in `syncLocalRooms()` explains this explicitly. The shape is also coerced at read time (`coerceRoom`) with sensible defaults for new fields, so a future additive field addition wouldn't break existing blobs. A v1→v2 migration story is not required now; the design deliberately defers it. This is acceptable.
+
+**Fail-soft paths:**
+- Corrupt JSON: `loadRooms` wraps `JSON.parse` in try/catch → returns []. Confirmed non-throwing.
+- `storage.getItem` returning null: checked with `if (!blob) return []`. Confirmed.
+- `saveRooms` wraps `setItem` in try/catch → quota exceeded / sandboxed → cache misses silently. Confirmed non-throwing.
+- `browserStorage()` wraps `window.localStorage` access in try/catch → returns NULL_STORAGE on sandboxed iframe. Confirmed.
+- All fail-soft paths are tested in the `resilience` describe block. Quality: high.
+
+**Defensive hostCode strip:** `rememberCreatedRoom` destructures `{ id, name }` from the input object — only those two fields (plus `createdAt`) reach `upsert`. The TypeScript type `{ id: string; name: string; createdAt?: number }` has no `hostCode` field, so a correctly typed call cannot pass one. The destructure is belt-and-suspenders for the runtime JavaScript case where an over-broad object is passed. The test "does not persist a hostCode even if smuggled into the input object" verifies the runtime strip via a type assertion cast. Confirmed effective.
+
+Could a future field rename defeat it? Only if someone adds a field `hostCode` to the `RememberedRoom` interface itself — but that type is the output, not the input to `rememberCreatedRoom`. The input type deliberately has no such field, and the destructure ignores anything extra. Future-proof against rename: YES, because the strip is structural (destructure extracts ONLY named fields; anything else is dropped), not a property-name blacklist.
+
+**Cap-eviction correctness:** `upsert` does `sortRooms([merged, ...rooms.filter(r => r.id !== entry.id)]).slice(0, MAX_ROOMS)`. The sort is most-recent-first, so `.slice(0, 50)` keeps the 50 most recent and drops the oldest. This is correct. The cap test ("caps at 50, dropping oldest") passes at 17/17.
+
+### 3. /api/host/session probe pattern — BLOCKING ISSUE
+
+**Finding:** `SavedRooms.tsx` fires one `fetch('/api/host/session?room=...')` per `created` room in an unbounded parallel `for` loop on every landing-page load.
+
+The cap is MAX_ROOMS = 50. A device that is a venue host running many karaoke nights could have 10–30 created rooms. On landing load, all their created rooms fire simultaneous GETs to the venue's own Next.js backend. On a low-power venue device (a tablet running Boraoke as the host station), this is a landing-page fan-out of N parallel requests — N up to 50 — on every visit to `/`.
+
+The ticket acceptance criteria (item 4) says "probe `/api/host/session` for that room" without a bounding constraint. However, the practical use case is hosts with multiple past rooms. The UX impact of a burst of 10–30 parallel fetches on a venue tablet is real: 10-30 concurrent requests that block on the same in-memory store, slow the initial render, and could rate-pressure the server-side store in a multi-tenant deployment.
+
+This is a genuine correctness/performance issue, not a taste finding. The fix is a cheap one-liner: probe only the top N most-recently-touched created rooms (e.g., top 3, or probe lazily on hover/click rather than on landing load). Since the list is already sorted most-recent-first by `loadRooms`, a `.filter(r => r.role === 'created').slice(0, 3)` guards the probe loop.
+
+**This is a blocking item.** The rest of the implementation is correct and clean; this one issue must be addressed before merge.
+
+### 4. PatronRoom.tsx touch — minimal, correctly flagged
+
+The diff adds exactly: one import (`rememberJoinedRoom`) and one call (`rememberJoinedRoom({ id: roomId, name: venueName || roomId })`) inside the existing boot `useEffect`, adjacent to the `cantai_last_room` setItem that already exists there. The form region (SongSearch, submission, queue display) is completely untouched.
+
+**TICKET-40 sequential-merge flag is correct and necessary.** I confirmed TICKET-40's branch also modifies PatronRoom.tsx — it adds a `submitBtnRef` at line 51 and a `parsedVideoId` effect block at lines 124–152 (different region from TICKET-43's boot useEffect at line 77). These changes do not conflict in content but WILL produce a merge conflict since both branches diverge from the same base commit (a1129ed) with different insertions. Sequential merge is required; the PR flagged this correctly.
+
+### 5. Wave-28 seam
+
+`claimable` on the persisted shape, `syncLocalRooms()` stub, and the TODO comment referencing `work/planning/accounts-and-identity.md` (I-2) are all present and correctly documented. The stub is genuinely a no-op (returns the claimable subset, zero side effects — confirmed by test "returns only claimable (created) rooms and mutates nothing"). The seam matches the planning doc: I-2 describes claiming as a uuid→account link resolved at read time, not a data rewrite, so the stored `claimable: true` flag is sufficient without any migration. Seam quality: correct.
+
+### 6. pt-BR copy quality
+
+All copy verified against App Tester report and component source:
+
+- "Suas salas" — natural, correct.
+- "Salvas neste dispositivo — volte rápido pra uma sala que você criou ou entrou." — "pra" (contraction of "para") is informal, appropriate for a karaoke app. "Que você criou ou entrou" is grammatically correct (entered — entered into). Natural.
+- "Entrar" / "Admin" / "TV" — standard.
+- `aria-label={\`Esquecer ${room.name}\`}` — "Esquecer" = to forget. Correct verb choice. Accessible.
+- "Sua sessão expirou — entre com o código da sala." — natural, honest, actionable. Correct.
+
+Copy quality: good. No issues.
+
+### 7. Rebase surface vs main
+
+The PR branch has 5 commits ahead of main (base: a1129ed). The diff surface is 19 files, entirely additive except for the 6-line PatronRoom.tsx addition, 16-line AdminRoom.tsx addition, 8-line app/new/page.tsx addition, and 4-line app/page.tsx addition. No framework files touched. No regressions in the diff to main. The only merge-conflict risk is PatronRoom.tsx vs TICKET-40 (flagged correctly).
+
+### 8. Dev report currency
+
+Dev report (work/reports/dev/TICKET-43.md) is current: reflects the implemented state, commits SHA in the "Commits" section, self-verification results match what I independently verified (371 unit, 31 e2e with 1 pre-existing fail). Status line: "IMPLEMENTED — suite green (371 unit + 31 e2e), draft PR opened." Accurate.
+
+---
+
+## Verdict: REQUEST-CHANGES
+
+### Blocking items
+
+**[BLOCKING-1] Probe bounding in SavedRooms.tsx — unbounded parallel fetch fan-out on landing load**
+
+The `useEffect` that probes `/api/host/session` fires one parallel `fetch` per created room in the list, with no upper bound. With MAX_ROOMS = 50 and a host who has created many rooms over time, this fans out up to 50 simultaneous requests on every landing page load. On a low-power venue device, this delays the landing render and pressure-tests the in-memory store unnecessarily.
+
+Fix: limit the probe to the most-recently-touched N created rooms only (propose N=3 — the host's 3 most recent sessions are the only plausible "still warm cookie" candidates; older cookies are almost certainly expired). The list is already sorted most-recent-first, so a `.filter(r => r.role === 'created').slice(0, 3)` in the probe loop is sufficient. Alternatively, probe lazily on hover/click of the Admin link.
+
+```ts
+// Replace:
+for (const room of rooms) {
+  if (room.role !== "created") continue;
+  fetch(...)
+}
+
+// With (eager top-3 approach):
+const toProbe = rooms.filter(r => r.role === "created").slice(0, 3);
+for (const room of toProbe) {
+  fetch(...)
+}
+```
+
+For rooms beyond the top 3, the admin link already safely falls back to `?expired=1` (which routes to the login gate), which is the correct behavior when the probe hasn't run. This is the sensible default.
+
+### Gate clarification (non-blocking, for TM awareness)
+
+**[INFO-1] verify-green-local.sh absent from boraoke repo**
+
+The reviewer framework (D-051) treats the local-Docker `verify-green-local.sh` GREEN as the authoritative CI gate. This repo does not have that script. The CI gate for boraoke is GitHub Actions (npm ci → build → npm test → playwright). I ran the unit suite locally (371/371) and verified the build — but could not run the full GitHub Actions gate locally. This is a framework repo gap, not a PR defect. Noting for TM.
+
+### Nits (non-blocking)
+
+**[NIT-1] v1→v2 migration story is absent but not needed yet**
+
+The comment "Versioned for future migration" on `ROOMS_KEY` implies a migration path exists but none is documented. Acceptable at this wave — the design avoids the need for a v2 migration by embedding `claimable` now and by using additive coercion. If a breaking schema change ever becomes necessary, the `_v1` suffix is a clear rename hook. Document the intended strategy in a follow-up ticket if desired (optional: file a TICKET-44 or add a comment inline).
+
+**[NIT-2] `adminHref` always shows `?expired=1` until probe completes**
+
+While the host-session probe is in flight, `hostValid[room.id]` is `undefined`, so `adminHref` evaluates to `/${room.id}/admin?expired=1`. This means there is a brief flash where a host with a valid cookie first sees "expired=1" in the href (even if the link doesn't visually say "expired"). The UX self-corrects once the probe resolves, but it could cause a confusing transient state if the user clicks Admin very fast after landing. Consider: default to the plain `/${room.id}/admin` when the probe is in-flight (undefined) — the AdminRoom already calls `checkSession()` on load and will redirect to the login gate if needed. This avoids the misleading transient href and is more honest. (Optional — do not block on this.)
+
+---
+
+## Evidence relied upon
+
+- Diff: local `git diff a1129ed..origin/ticket/43-session-recovery` (git-local-first)
+- Test run: `npm test` in ticket-43 worktree → 371/371
+- Room-memory targeted run → 17/17
+- Build: `npm run build` → success
+- Pre-existing failure confirmation: byte-identical feedback.spec.ts between main and branch
+- App Tester PASS report: work/reports/testing/TICKET-43-app-test.md (on branch)
+- Security waiver: TM-assessed N/A-by-content, confirmed by reviewer
+- PatronRoom.tsx overlap: TICKET-40 branch diff — confirmed separate regions but merge conflict inevitable
+- Planning doc: work/planning/accounts-and-identity.md — I-2 claim model consistent with `claimable` flag and syncLocalRooms stub
+- Ticket: work/tickets/TICKET-43-session-recovery.md — all 6 acceptance criteria checked against diff
+
+---
+
+## Acceptance criteria check
+
+| AC | Status |
+|---|---|
+| 1. Creating a room records id/name/role/createdAt with NO host code field | PASS |
+| 2. Joining a room records id/name/lastSeen/role:joined | PASS |
+| 3. Landing "Suas salas" with role-appropriate links + ✕ + "salvas neste dispositivo" | PASS |
+| 4. Valid cookie → admin direct; expired → login gate with honest copy | PASS |
+| 5. claimable flag + syncLocalRooms stub pointing at accounts plan, no auth built | PASS |
+| 6. Unit tests (add/dedupe/forget/order/cap/never-stores-hostCode) + E2E green | PASS (371/371 unit, 30/31 e2e pre-existing fail) |
+
+All acceptance criteria are met by the implementation. The blocking item (probe bounding) is a quality/performance issue not directly in the ticket's acceptance criteria but is a correctness concern the Reviewer is responsible for catching.
+
+---
+
+## Summary
+
+The implementation is clean, well-structured, and correctly addresses the ticket's scope. The lib quality is high: fail-soft paths, type-enforced + runtime-stripped security invariant, injected storage for testability, documented wave-28 seam. The single blocking issue is the unbounded parallel probe fan-out on landing load, which needs a cap (top-3 created rooms is the natural bound). The fix is a one-liner; re-review expected to be fast.
