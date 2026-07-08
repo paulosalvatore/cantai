@@ -1,0 +1,12 @@
+  ✓  21 [chromium] › e2e/submit-song.spec.ts:10:5 › patron submits a song and it appears in the queue (1.3s)
+  ✓  22 [chromium] › e2e/telemetry.spec.ts:13:5 › beacon accepts a client-allowed event with 202 (568ms)
+  ✓  23 [chromium] › e2e/telemetry.spec.ts:21:5 › beacon rejects server-observable and unknown events with 400 (33ms)
+  ✓  24 [chromium] › e2e/telemetry.spec.ts:32:5 › beacon rejects malformed bodies and the patron page still works (2.7s)
+  ✓  25 [chromium] › e2e/tv-watchdog.spec.ts:98:7 › /tv watchdog (TICKET-41) › onError 150 (embedding disabled): pt-BR notice + auto-advance, no human action (5.8s)
+  ✓  26 [chromium] › e2e/tv-watchdog.spec.ts:136:7 › /tv watchdog (TICKET-41) › onError 100 (video removed) also skips; non-fatal codes do not (1.2s)
+  ✓  27 [chromium] › e2e/tv.spec.ts:46:7 › /tv › idle state renders the recruitment poster without errors (AC3, AC6) (1.6s)
+  ✓  28 [chromium] › e2e/tv.spec.ts:64:7 › /tv › playing state: hero scale, max-3 rail, nothing under 28px (AC1) (811ms)
+  ✓  29 [chromium] › e2e/tv.spec.ts:118:7 › /tv › fullscreen affordance enters fullscreen and hides after (AC2) (1.0s)
+  ✓  30 [chromium] › e2e/tv.spec.ts:171:7 › /tv › chrome auto-hides and the cursor goes with it (5.4s)
+
+  30 passed (1.5m)

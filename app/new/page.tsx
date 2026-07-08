@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import QrCode from "@/components/QrCode";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
+import { rememberCreatedRoom } from "@/lib/room-memory";
 
 interface Created {
   id: string;
@@ -65,7 +66,12 @@ export default function NewRoomPage() {
         setError(data.error ?? t("createFailed"));
         return;
       }
-      setRoom(data as Created);
+      const created = data as Created;
+      setRoom(created);
+      // TICKET-43: remember this device created the room (id + name only — NEVER
+      // the host code, which stays shown-once). Powers the landing "Suas salas"
+      // recovery section so a host who loses the tab can find their room again.
+      rememberCreatedRoom({ id: created.id, name: created.name });
     } catch {
       setError(tc("networkError"));
     } finally {
