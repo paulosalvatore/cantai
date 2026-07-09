@@ -375,7 +375,7 @@ export default function AdminRoom({
               disabled={modBusy}
               onChange={(e) => void toggleModeration(e.target.checked)}
             />
-            <span className={styles.switchTrack} />
+            <span className={styles.switchTrack} data-testid="moderation-track" />
           </label>
         </div>
         <p className={styles.moderationHint}>{t("moderationHint")}</p>

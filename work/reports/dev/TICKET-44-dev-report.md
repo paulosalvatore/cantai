@@ -1,8 +1,8 @@
 # Dev Report — TICKET-44 (venue-optional song moderation)
 
-**Status:** IMPLEMENTING (exploration + plan done, worktree live)
+**Status:** IMPLEMENTED — self-verified green (build + 470 unit + e2e). Awaiting local-Docker verify-green + gates.
 **Branch:** `ticket/44-moderation` · worktree `.worktrees/ticket-44` · port `3044`
-**PR:** _pending first commit_
+**PR:** https://github.com/paulosalvatore/boraoke/pull/25 (draft)
 
 ## Picking up from
 
@@ -26,12 +26,31 @@ Read the queue/host/store/i18n/telemetry/test areas directly + one Explore fan-o
 
 ## Implementation log
 
-_(SHAs appended as commits land.)_
+- `80e1b87` — ticket + plan + dev report.
+- `b99e96e` — backend + API: `lib/pending-{store,types}.ts` (parallel keyspace, both drivers), `RoomSettings.moderation` + `get/setRoomModeration`, `/api/host/moderation`, `/api/host/pending` (GET), `/api/host/pending/{approve,reject}`, `/api/queue/pending` (patron uuid-scoped GET), `/api/queue` POST moderation branch (202) + `moderation` in GET payload, telemetry docstrings.
+- `fc8c1bf` — UI + i18n + unit tests: AdminRoom moderation toggle + pending-approval section (badge/approve/reject) + poll; PatronRoom pending/rejected view + poll; `admin.module.css` switch/pending styles; trilingual catalog strings; `pending-store.test.ts`, `room-moderation.test.ts`, `api-moderation.test.ts`.
+- (next commit) — `e2e/moderation.spec.ts` + a `data-testid="moderation-track"` on the switch for a clickable target.
+
+## Key decisions
+
+- **Pending in a parallel keyspace** (`room:<id>:pending:*`), never the frozen `QueueStore`. The rotation engine / public queue / TvScreen read only `store.getQueue`, so unapproved entries are invisible to fairness/caps/TV **by construction** — no filtering, and **no TvScreen edit** (→ zero overlap with TICKET-45).
+- **Caps AT approval, not submit.** Submit-time `checkSubmit` runs as a cheap pre-filter; the authoritative caps (`checkSubmit` + `QUEUE_MAX`) re-run at approve time against the live queue. A refused approval **re-adds** the entry to pending (never lost) and returns 409.
+- **202 (not 201)** for a moderated submit so the patron client distinguishes "queued" from "awaiting approval".
+- **Telemetry reuses** `host_action` (`action: approve|reject|moderation_change`) + `submit_rejected` (`reason: moderation`) — new prop VALUES only, no new event types (docstring-only change to `telemetry-types.ts`).
+- **Bounded pending:** per-room (`PENDING_ROOM_MAX`, default 100) + per-uuid (`PENDING_UUID_MAX`, default 5) caps → polite 429 from the catalogs; the existing submit rate limit still runs upstream, unchanged.
 
 ## Self-verification
 
-_(build + unit + e2e + verify-green-local output pasted here before any gate request.)_
+- **Build:** `npm run build` GREEN — all new routes compiled (`/api/host/moderation`, `/api/host/pending`, `/api/host/pending/approve`, `/api/host/pending/reject`, `/api/queue/pending`).
+- **Unit:** `npx jest` → **Test Suites: 33 passed, Tests: 470 passed** (0 fail). Includes: pending-store both-driver conformance, room-moderation getter/setter, api-moderation flow (OFF→queued, ON→pending, approve→queued, reject→rejected, caps-at-approval, uuid isolation, unauth 401), i18n-completeness parity (195 keys × 3, ICU placeholders matched).
+- **e2e (`PORT=3044`):** `e2e/moderation.spec.ts` → **3 passed** (OFF unchanged; ON approve→queue; ON reject→patron rejected). Full e2e suite run in progress — result pasted below.
+- **verify-green-local (local-Docker):** _to run before requesting gates — output pasted here._
 
 ## Friction
 
-_(none yet.)_
+- Worktrees carry no `node_modules` — needed `npm ci` in the worktree before build/e2e (expected; noted for the App Tester who reuses this worktree).
+- The visually-hidden switch checkbox (`opacity:0`) is unclickable by Playwright; added `data-testid="moderation-track"` on the visible track span as the click target. Standard a11y-switch pattern gotcha.
+
+## Overlap notes (TICKET-45)
+
+No shared-file edits. Pending lives outside the queue → no TvScreen / advance / host-auth changes. e2e ships self-contained helpers → no shared e2e-helper edit. Clean parallel merge.
