@@ -68,12 +68,20 @@ export default function TvScreen({
   poweredByFooter,
   roomId,
   venueName,
+  screenToken,
 }: {
   poweredByFooter: boolean;
   /** Room whose queue this screen plays. Omitted = legacy `default` room. */
   roomId?: string;
   /** Venue display name for the top bar (falls back to a generic label). */
   venueName?: string;
+  /**
+   * Advance-auth screen token (TICKET-45), minted by the /[room]/tv server page
+   * from the room's server-only secret. Sent as `X-Boraoke-Screen` on advance so
+   * the route can authorize the skip. `null`/absent for a no-key room (the TV
+   * then sends no header and enforcement is off for that room).
+   */
+  screenToken?: string | null;
 }) {
   // i18n (TICKET-30): the TV follows the ROOM language, never a per-user
   // cookie — the server page wraps this component in a NextIntlClientProvider
@@ -227,8 +235,17 @@ export default function TvScreen({
       const reasonQuery = reason
         ? `${roomQuery ? "&" : "?"}reason=${reason}`
         : "";
+      // Advance-auth (TICKET-45): attach the room's screen token so the route
+      // authorizes the skip. Omitted for a no-key room (server passed null) —
+      // enforcement is off there, so no header is the correct signal. This ONE
+      // fetch layer is the sole advance path, so the watchdog, ENDED
+      // auto-advance, and the manual skip button all carry the credential.
+      const headers: HeadersInit = screenToken
+        ? { "X-Boraoke-Screen": screenToken }
+        : {};
       await fetch(`/api/queue/advance${roomQuery}${reasonQuery}`, {
         method: "POST",
+        headers,
       });
       const res = await fetch(`/api/queue${roomQuery}`);
       if (!res.ok) return;
@@ -239,7 +256,7 @@ export default function TvScreen({
     } catch {
       return null;
     }
-  }, [roomQuery]);
+  }, [roomQuery, screenToken]);
 
   // ---- TICKET-41: skip a video that will never play here (onError / ladder top) ----
   const skipUnplayable = useCallback(async () => {

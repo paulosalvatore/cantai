@@ -1,0 +1,19 @@
+# ENFORCE MODE: Patron-context advance rejection evidence
+# Server: http://localhost:3145, ADVANCE_AUTH=enforce
+
+## Test 1: Bare advance (no header)
+$ curl -s -w "\nHTTP_STATUS:%{http_code}" -X POST http://localhost:3145/api/queue/advance
+{"error":"Unauthorized"}
+HTTP_STATUS:401
+
+## Test 2: Garbage X-Boraoke-Screen header
+$ curl -s -w "\nHTTP_STATUS:%{http_code}" -X POST http://localhost:3145/api/queue/advance -H "X-Boraoke-Screen: deadbeefdeadbeefdeadbeefdeadbeef"
+{"error":"Unauthorized"}
+HTTP_STATUS:401
+
+## Test 3: Token minted for DIFFERENT room (wrong-room rejection)
+# Token = HMAC for "otherroom" submitted against "default" room
+# Other-room token: 22b8dc1d7abcde0b...
+$ curl -s -w "\nHTTP_STATUS:%{http_code}" -X POST http://localhost:3145/api/queue/advance -H "X-Boraoke-Screen: 22b8dc1d7abcde0b..."
+{"error":"Unauthorized"}
+HTTP_STATUS:401

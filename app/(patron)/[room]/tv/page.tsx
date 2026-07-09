@@ -2,6 +2,7 @@ import { NextIntlClientProvider } from "next-intl";
 import TvScreen from "@/components/tv/TvScreen";
 import { resolvePoweredByFooter } from "@/components/tv/config";
 import { getPublicRoom, getRoomLanguage } from "@/lib/rooms";
+import { mintScreenToken } from "@/lib/screen-token";
 import { loadMessages } from "@/i18n/request";
 
 /**
@@ -29,12 +30,18 @@ export default async function RoomTvPage({
   // default language (pt-BR when unset), NEVER a per-user cookie. Scoped
   // provider overrides the app-wide request-locale for this subtree.
   const locale = await getRoomLanguage(room);
+  // Advance-auth (TICKET-45): mint the room's stateless screen token here, on
+  // the server, from its server-only secret. TvScreen sends it as the
+  // X-Boraoke-Screen header on advance so the route can authorize the skip.
+  // `null` for a no-key room (enforcement off) — the TV then sends no header.
+  const screenToken = await mintScreenToken(room);
   return (
     <NextIntlClientProvider locale={locale} messages={await loadMessages(locale)}>
       <TvScreen
         poweredByFooter={resolvePoweredByFooter(process.env.POWERED_BY_FOOTER)}
         roomId={room}
         venueName={record?.name}
+        screenToken={screenToken}
       />
     </NextIntlClientProvider>
   );
