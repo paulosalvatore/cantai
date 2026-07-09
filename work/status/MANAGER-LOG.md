@@ -57,3 +57,23 @@ State at checkpoint:
 - NEXT UP after rebrand lands (all specs on main): wave 4 = TICKET-24 hardening batch + TICKET-25 telemetry completions/deflake (parallel, disjoint); then TICKET-26 anon identity registry → 27 Turnstile → 28 Google-login host accounts; design build waves per work/design/design-handoff-v2.md (29 theming → 30 i18n → 31 admin v2 → 32 venue types). Roadmap: work/roadmap.md (v2). Wave rules/ownership in the roadmap + design handoff.
 - TL pending: YouTube quota form (text at work/youtube-quota-form.md, opened for TL); Google OAuth console add boraoke.com origins+redirect; framework inbox has asset-gen port-override + merge=union notes.
 - House specifics that bite: event-log jsonl conflicts on EVERY parallel PR (union-resolve; merge=union gitattributes still pending as TICKET-24 item); gh -R paulosalvatore/boraoke; CI won't run on CONFLICTING PRs; debug-Chrome for assets on 9222 (profile ~/chrome-debug-assets, gemini engine, gpt unusable); memory-store resets per-route-compile in next dev (warmUp before seeding in e2e).
+
+## 2026-07-09 — COMPACT CHECKPOINT #2 (pre-restart)
+
+TL directed compact+restart. Full state for tm-resume:
+
+**Session outcome:** the entire live-usage wave + follow-on pair is done. Merged today: PR #23 (TICKET-30 i18n — TRILINGUAL LIVE, verified en/es/pt-BR on boraoke.com), PR #26 (TICKET-45 skip-auth — LIVE in ADVANCE_AUTH=log mode). 24 product PRs merged total.
+
+**THE ONE OPEN THREAD — PR #25 (TICKET-44 moderation), resume here:**
+- Fully approved (App Tester 9/9, Security 4×LOW dispositioned, sonnet+opus APPROVE "Friday-night shippable"). Merge was HELD at CI gate.
+- CI-red was root-caused (deterministic, ticket-caused): unwarmed /api/host/pending first-compile resets the next-dev memory-store singleton mid-spec → host-controls.spec wipe. Class fix: shared warmModerationRoutes() in e2e/helpers.ts. Local on fix tip 962f94b: build green, 487/487 unit, 46/46 cold e2e.
+- BLOCKED ONLY by the GitHub Actions incident (githubstatus.com component "Actions" degraded; no runs materialize on push since 04:36Z). NOT billing — repo is PUBLIC (dev's [needs-user] on PR #25 corrected by TM comment).
+- RESUME PROTOCOL: (1) check githubstatus Actions component; (2) when operational, kick CI (close/reopen PR #25 or empty push to ticket/44-moderation); (3) confirm build-and-test SUCCESS on 962f94b; (4) git-ops merge round (jsonl UNION already absorbed in 1f582de — likely no new conflict; expect ~487 unit); (5) clean .worktrees/ticket-44, board TICKET-44 → DONE.
+
+**Environmental:** Vercel hobby deploy rate limit hit (~24h from 2026-07-09 early UTC) — merges deploy late; both pending features behavior-neutral by default (moderation OFF, advance-auth log).
+
+**Post-merge queue (board Follow-ups, priority order):** (1) MED toggle-OFF pending orphans (auto-reject on toggle-OFF); (2) MED pending-store TTL + MGET batch (poll cost ~4,400 cmds/min at 20 pending); (3) MED F1 kiosk-TV token self-heal (enforce-flip runbook requires TV reloads until fixed); (4) LOW F2 unplayable-skip rate exemption; (5) LOW over-echo trims; (6) HIGH contrast smoke assertion (older); (7) ADVANCE_AUTH enforce flip per runbook (observation window on Vercel logs → flip env → redeploy → hard-reload venue TVs).
+
+**TL items outstanding:** aistudio.google.com login in debug-Chrome (EN/ES OG cards, TICKET-33c agent parked); Google OAuth console: add boraoke.com origins/redirects; YouTube quota form (text: work/youtube-quota-form.md).
+
+**Prompt archive:** session 2026-07-05-session-003 curated through 022; 9de2524a staging flushed (8 real prompts verified archived, 10 task-notification hook-noise deleted, inbox note filed).
