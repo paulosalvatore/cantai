@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { drainQueue } from "./helpers";
 
 /**
  * E2E: /tv venue screen (TICKET-18) — 10-foot layout, idle poster,
@@ -17,14 +18,6 @@ const uuid = () =>
     Math.floor(Math.random() * 16).toString(16)
   );
 
-async function drainQueue(page: Page) {
-  for (let i = 0; i < 220; i++) {
-    const res = await page.request.get("/api/queue");
-    const data = await res.json();
-    if (!data.items || data.items.length === 0) return;
-    await page.request.post("/api/queue/advance");
-  }
-}
 
 async function seed(page: Page, entry: Record<string, string>) {
   const res = await page.request.post("/api/queue", { data: entry });
@@ -40,14 +33,14 @@ async function seedShow(page: Page) {
 
 test.describe("/tv", () => {
   test.afterEach(async ({ page }) => {
-    await drainQueue(page); // leave the shared in-memory store clean
+    await drainQueue(page.request); // leave the shared in-memory store clean
   });
 
   test("idle state renders the recruitment poster without errors (AC3, AC6)", async ({ page }) => {
     const pageErrors: Error[] = [];
     page.on("pageerror", (err) => pageErrors.push(err));
 
-    await drainQueue(page);
+    await drainQueue(page.request);
     await page.goto("/default/tv");
 
     await expect(page.getByTestId("tv-idle")).toBeVisible();
@@ -62,7 +55,7 @@ test.describe("/tv", () => {
   });
 
   test("playing state: hero scale, max-3 rail, nothing under 28px (AC1)", async ({ page }) => {
-    await drainQueue(page);
+    await drainQueue(page.request);
     await seedShow(page);
     await page.goto("/default/tv");
 
@@ -137,7 +130,7 @@ test.describe("/tv", () => {
       };
     });
 
-    await drainQueue(page);
+    await drainQueue(page.request);
     await page.goto("/default/tv");
 
     // Affordance is visible on load (chrome shown, re-shows after reloads)
@@ -169,7 +162,7 @@ test.describe("/tv", () => {
   });
 
   test("chrome auto-hides and the cursor goes with it", async ({ page }) => {
-    await drainQueue(page);
+    await drainQueue(page.request);
     await page.goto("/default/tv");
 
     const chrome = page.getByTestId("tv-chrome");

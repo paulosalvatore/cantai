@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { drainQueue } from "./helpers";
 
 /**
  * E2E: /tv player watchdog (TICKET-41) — an unplayable video (onError
@@ -17,15 +18,6 @@ const uuid = () =>
   "xxxxxxxx-xxxx-4xxx-8xxx-xxxxxxxxxxxx".replace(/x/g, () =>
     Math.floor(Math.random() * 16).toString(16)
   );
-
-async function drainQueue(page: Page) {
-  for (let i = 0; i < 220; i++) {
-    const res = await page.request.get("/api/queue");
-    const data = await res.json();
-    if (!data.items || data.items.length === 0) return;
-    await page.request.post("/api/queue/advance");
-  }
-}
 
 async function seed(page: Page, entry: Record<string, string>) {
   const res = await page.request.post("/api/queue", { data: entry });
@@ -92,12 +84,12 @@ const fireError = (page: Page, code: number) =>
 
 test.describe("/tv watchdog (TICKET-41)", () => {
   test.afterEach(async ({ page }) => {
-    await drainQueue(page); // leave the shared in-memory store clean
+    await drainQueue(page.request); // leave the shared in-memory store clean
   });
 
   test("onError 150 (embedding disabled): pt-BR notice + auto-advance, no human action", async ({ page }) => {
     await stubYouTube(page);
-    await drainQueue(page);
+    await drainQueue(page.request);
     await seed(page, { videoId: "dQw4w9WgXcQ", title: "Vídeo Bloqueado", nickname: "Beto", patronUuid: uuid(), mode: "sing" });
     await seed(page, { videoId: "aaaaaaaaaaa", title: "Próxima da Fila", nickname: "Carla", patronUuid: uuid(), mode: "sing" });
 
@@ -135,7 +127,7 @@ test.describe("/tv watchdog (TICKET-41)", () => {
 
   test("onError 100 (video removed) also skips; non-fatal codes do not", async ({ page }) => {
     await stubYouTube(page);
-    await drainQueue(page);
+    await drainQueue(page.request);
     await seed(page, { videoId: "dQw4w9WgXcQ", title: "Sumiu do YouTube", nickname: "Ana", patronUuid: uuid(), mode: "sing" });
     await seed(page, { videoId: "bbbbbbbbbbb", title: "Sobrevivente", nickname: "Duda", patronUuid: uuid(), mode: "sing" });
 

@@ -1,0 +1,9 @@
+# LOG MODE: Bare advance returns 200 + server logs would-block
+# Server: http://localhost:3145, ADVANCE_AUTH=log
+
+## Test: Bare advance in LOG mode
+$ curl -s -o /dev/null -w "%{http_code}" -X POST http://localhost:3145/api/queue/advance
+200  (NOT rejected — log mode lets it through)
+
+## Server log output (from /tmp/boraoke-log-mode.log):
+[advance-auth] would-block advance room=default reason=unauthorized mode=log

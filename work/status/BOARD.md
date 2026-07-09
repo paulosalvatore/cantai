@@ -1,8 +1,10 @@
 # cantai — Board
 
-_Last updated: 2026-07-09 (WAVE CLOSED — 23 PRs; trilingual live; 45+44 building)_
+_Last updated: 2026-07-09 (24 PRs; #26 skip-auth merged/log-mode; #25 moderation in app-test; ⚠️ Vercel deploy rate-limited ~24h)_
 
 ## Needs user (TL)
+
+- 🟡 **Vercel deployment rate limit hit (2026-07-09)** — "retry in 24 hours" on the hobby plan; production deploys of new merges are delayed until it clears (or upgrade to Pro). #26 is behavior-neutral (log mode) so no urgency; #25 moderation will deploy once the limit clears.
 
 - 🟢 RESOLVED 2026-07-08: boraoke.com DNS live (TL). NEXTAUTH_URL switched to https://boraoke.com (TM).
 - 🟡 **TL: one choice on PR #19** — ⌘Q Chrome (1 min) so EN/ES OG cards generate, OR waive to ship pt-BR-only now with cards as follow-up. Also: add boraoke.com to Google OAuth origins/redirects (console) + YouTube quota form (text delivered).
@@ -16,6 +18,9 @@ _Last updated: 2026-07-09 (WAVE CLOSED — 23 PRs; trilingual live; 45+44 buildi
 - **BINDING for TICKET-28 (accounts/claim): claim-path AC (PR #22 opus)** — the server MUST treat localStorage `claimable`/posted room-id lists as an untrusted claim REQUEST, never ownership evidence; authorize only via the server-registered anon uuid's `identity:{uuid}:rooms` index (TICKET-26) or host-token proof for legacy rooms; sign-out clears device memory (AC4).
 - **TICKET-45 (next slot): advance-auth screen-token + per-room rate limit** — design complete in work/plans/TICKET-41-plan.md (HMAC screen-token, log-only→enforce rollout, e2e drain-helper migration). TL-directed (skip-from-patron hole). Launch after #21/#24 merge.
 - **Paste-submit embeddability warning** (TICKET-41 deferral; after #40 merges — patron-form file).
+- **[MED] F1 (PR #26 opus): kiosk-TV token self-heal** — a TV page that never reloads outlives its ≤48h screen token and wedges silently under enforce (no watchdog rung reloads the PAGE). Add client-side token-age self-heal (page reload or token refetch). Until fixed, the enforce-flip runbook REQUIRES reloading every deployed venue TV after the flip.
+- **[LOW] F2 (PR #26 opus): exempt reason=unplayable advances from the anti-grief rate charge** — removes the 12-instafail→60s TV wedge without weakening the throttle.
+- **ADVANCE_AUTH enforce-flip runbook (TM action, after observation window):** watch Vercel logs for `[advance-auth] would-block` lines (a legit TV produces ZERO — any appearance is the signal); when quiet, set ADVANCE_AUTH=enforce in Vercel prod + redeploy + HARD-RELOAD every live venue TV (F1 caveat).
 
 - **[HIGH] Atomic store RMW (PR #14 opus)** — WATCH/Lua CAS on QueueStore rewrite/removeEntry/reorder + concurrency regression test. Closes the lost-submit window (~0.1-0.3/busy night in bursts, patron-visible+permanent) AND the pre-existing host-op races in one change. First candidate for the next dev slot.
 - **[LOW] Strip patronUuid from public GET /api/queue projection** (griefing lockout via per-uuid limiter) — weigh against patron-page own-row highlighting (may need a hashed marker instead).
@@ -54,8 +59,8 @@ _Last updated: 2026-07-09 (WAVE CLOSED — 23 PRs; trilingual live; 45+44 buildi
 | TICKET-40 | Search UX (select-jump + karaoke keyword) | DONE | PR #21 merged (App Tester FAIL→fix→PASS focus race; opus product judgments recorded) |
 | TICKET-41 | TV watchdog + embeddable search | DONE | PR #24 merged (415/415; opus all-night walk blessed 12s ladder; skip-AUTH deferred by design → TICKET-45) |
 | TICKET-43 | Session recovery (local room memory) | DONE | PR #22 merged (probe bounded top-3; claim-path AC binding for TICKET-28 recorded) |
-| TICKET-44 | Optional moderation mode | IN PROGRESS | Dev (opus), .worktrees/ticket-44 — pending-list store pattern, approval at addEntry time |
-| TICKET-45 | Advance/skip authorization | IN PROGRESS | Dev (opus), .worktrees/ticket-45 — implements the TICKET-41 plan (screen token, log→enforce) + e2e drain-helper migration |
+| TICKET-44 | Optional moderation mode | IN GATES | PR #25 (470/470, parallel pending keyspace, caps-at-approval); App Tester running |
+| TICKET-45 | Advance/skip authorization | DONE | PR #26 merged (460/460; full chain). LIVE in log mode — enforce flip per runbook after observation window |
 | TICKET-30 | i18n pt-BR/en/es + switcher | DONE | PR #23 merged (443/443; zero stragglers; opus locale-matrix + bundle rulings clean). TRILINGUAL LIVE |
 | TICKET-33 | Code rebrand + publish metadata | DONE | PR #20 merged; boraoke.com live-verified (title, OG 200, 308 redirect w/ path+query) |
 | (research) | Naming + domain availability | IN PROGRESS | fable agent — cantai.com taken; shortlist w/ whois checks |

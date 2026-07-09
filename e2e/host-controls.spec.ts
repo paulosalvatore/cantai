@@ -1,4 +1,5 @@
 import { test, expect, type APIRequestContext } from "@playwright/test";
+import { advanceOnce } from "./helpers";
 
 /**
  * E2E: host controls (TICKET-7) — login → remove → reorder → pause.
@@ -35,7 +36,7 @@ async function drain(request: APIRequestContext) {
   for (let i = 0; i < 40; i++) {
     const data = await (await request.get("/api/queue")).json();
     if (!data.items?.length) break;
-    await request.post("/api/queue/advance");
+    await advanceOnce(request); // authenticated advance — TICKET-45
   }
   await request.post("/api/host/login", { data: { token: DEV_TOKEN } });
   await request.post("/api/host/pause", { data: { paused: false } });

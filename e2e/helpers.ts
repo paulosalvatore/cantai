@@ -1,0 +1,94 @@
+/**
+ * Shared e2e helpers (TICKET-45).
+ *
+ * WHY this file exists: TICKET-45 authorizes `POST /api/queue/advance` behind a
+ * screen token (see lib/screen-token.ts). Every spec used to drain the queue via
+ * a BARE `page.request.post("/api/queue/advance")`, which is exactly the call
+ * the enforce mode rejects. Rather than scatter token-minting across specs, the
+ * credential is obtained ONCE here and every drain/advance goes through
+ * {@link advanceOnce} / {@link drainQueue}.
+ *
+ * HOW the credential is obtained: the e2e servers run in dev/test mode against
+ * the memory store, where a room with no record (the legacy `default` room)
+ * keys off the well-known dev-fallback host token (`DEV_FALLBACK_TOKEN`,
+ * mirrored here as the specs already hardcode it — see host-controls.spec.ts).
+ * We recompute the SAME HMAC the server mints in lib/screen-token.ts. This
+ * mirrors the production reality that the token is derived, not stored — the
+ * test just holds the same secret the venue's own TV page does.
+ *
+ * For a non-default room the caller passes the room's raw host code (the value
+ * shown once at /new) so the helper can hash it into the room secret.
+ */
+import { createHmac } from "crypto";
+import type { APIRequestContext } from "@playwright/test";
+
+/** Mirror of lib/host-auth.ts DEV_FALLBACK_TOKEN — the default-room dev secret. */
+const DEV_FALLBACK_TOKEN = "cantai-dev-host";
+/** Mirror of lib/screen-token.ts constants (kept in sync with the server). */
+const SCREEN_TOKEN_PREFIX = "boraoke-screen-v1";
+const SCREEN_TOKEN_BUCKET_MS = 24 * 60 * 60 * 1000;
+/** Mirror of lib/rooms.ts hashHostCode key (deliberately old-brand — frozen). */
+const HOSTCODE_HMAC_KEY = "cantai-hostcode-v1";
+
+export const SCREEN_TOKEN_HEADER = "X-Boraoke-Screen";
+export const DEFAULT_ROOM = "default";
+
+/**
+ * The server-side room secret used to mint/verify the screen token:
+ *   - `default` room → the dev-fallback host token (no room record in dev/test).
+ *   - a created room → HMAC-SHA256("cantai-hostcode-v1", rawHostCode) — the same
+ *     `hostCodeHash` the server stores.
+ */
+function roomSecret(roomId: string, rawHostCode?: string): string {
+  if (roomId === DEFAULT_ROOM || !rawHostCode) return DEV_FALLBACK_TOKEN;
+  return createHmac("sha256", HOSTCODE_HMAC_KEY).update(rawHostCode).digest("hex");
+}
+
+/**
+ * Compute the current-bucket screen token for a room — the same value
+ * lib/screen-token.ts mints server-side. `rawHostCode` is only needed for a
+ * non-default room.
+ */
+export function screenTokenFor(roomId = DEFAULT_ROOM, rawHostCode?: string): string {
+  const bucket = Math.floor(Date.now() / SCREEN_TOKEN_BUCKET_MS);
+  return createHmac("sha256", roomSecret(roomId, rawHostCode))
+    .update(`${SCREEN_TOKEN_PREFIX}|${roomId}|${bucket}`)
+    .digest("hex");
+}
+
+/** Room `?room=` query suffix (absent for the default room). */
+function roomQuery(roomId: string): string {
+  return roomId === DEFAULT_ROOM ? "" : `?room=${encodeURIComponent(roomId)}`;
+}
+
+/**
+ * Advance the queue head ONCE, authenticated with the room's screen token — the
+ * migrated replacement for a bare `POST /api/queue/advance`. Returns the raw
+ * response so callers can assert on it when they care.
+ */
+export async function advanceOnce(
+  request: APIRequestContext,
+  roomId = DEFAULT_ROOM,
+  rawHostCode?: string,
+) {
+  return request.post(`/api/queue/advance${roomQuery(roomId)}`, {
+    headers: { [SCREEN_TOKEN_HEADER]: screenTokenFor(roomId, rawHostCode) },
+  });
+}
+
+/**
+ * Drain a room's queue to empty via authenticated advances. Real test seeds are
+ * a handful of entries, comfortably under the per-room advance rate limit; the
+ * loop bound is only a runaway guard.
+ */
+export async function drainQueue(
+  request: APIRequestContext,
+  roomId = DEFAULT_ROOM,
+  rawHostCode?: string,
+) {
+  for (let i = 0; i < 60; i++) {
+    const data = await (await request.get(`/api/queue${roomQuery(roomId)}`)).json();
+    if (!data.items?.length) return;
+    await advanceOnce(request, roomId, rawHostCode);
+  }
+}
