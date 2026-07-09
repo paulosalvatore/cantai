@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { store, DEFAULT_ROOM } from "@/lib/store";
 import { isValidRoomId } from "@/lib/rooms";
 import { track } from "@/lib/telemetry";
+import { isAdvanceAuthorized, advanceAuthMode } from "@/lib/screen-token";
+import { advanceRateLimitOk } from "@/lib/advance-rate-limit";
 
 /**
  * Allowlisted skip reasons the TV client may attach to an advance (TICKET-41).
@@ -16,6 +18,15 @@ const ADVANCE_SKIP_REASONS = new Set(["unplayable"]);
  * `room` = the legacy `default` room. Validates the id before it reaches a
  * Redis key. A valid `reason` additionally emits the existing `song_skipped`
  * event with that reason prop (props variant only — no new event types).
+ *
+ * AUTHORIZATION (TICKET-45): advance was unauthenticated — any patron who reads
+ * the room QR could curl-skip the current singer. It now requires the room's
+ * screen token (`X-Boraoke-Screen`, minted by the /[room]/tv server page) OR a
+ * valid host session. Rollout is flag-gated: `ADVANCE_AUTH=log` (default) only
+ * records a would-block observation; `ADVANCE_AUTH=enforce` returns 401. Rooms
+ * with no configured secret are not enforced (no-key → fail-open). A per-room
+ * advance rate limit is the defense-in-depth backstop against a scraped token.
+ * See lib/screen-token.ts for the full model + honest threat note.
  */
 export async function POST(req: NextRequest) {
   const raw = req.nextUrl.searchParams.get("room");
@@ -23,6 +34,29 @@ export async function POST(req: NextRequest) {
   if (!isValidRoomId(roomId)) {
     return NextResponse.json({ error: "Invalid room id" }, { status: 400 });
   }
+
+  // ── Advance-auth gate (TICKET-45) ──────────────────────────────────────────
+  const auth = await isAdvanceAuthorized(req, roomId);
+  const mode = advanceAuthMode();
+  if (!auth.ok) {
+    if (mode === "enforce") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    // log-only: observe the would-block, then let the call proceed. This is the
+    // quiet observation window before the TM flips ADVANCE_AUTH=enforce.
+    console.warn(
+      `[advance-auth] would-block advance room=${roomId} reason=${auth.reason} mode=log`,
+    );
+  }
+
+  // ── Per-room advance rate limit (defense-in-depth backstop) ────────────────
+  if (!advanceRateLimitOk(roomId)) {
+    return NextResponse.json(
+      { error: "Too many advances", reason: "rate" },
+      { status: 429 },
+    );
+  }
+
   const rawReason = req.nextUrl.searchParams.get("reason");
   const skipReason =
     rawReason && ADVANCE_SKIP_REASONS.has(rawReason) ? rawReason : null;

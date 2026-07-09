@@ -39,6 +39,11 @@ export default defineConfig({
       // Node.js 22+ provides localStorage as a global; without a valid file path it's a broken stub.
       // Provide a temp file so the global is functional during SSR.
       NODE_OPTIONS: `--localstorage-file=/tmp/boraoke-ls-${PORT}.json`,
+      // Advance-auth (TICKET-45): run the WHOLE e2e suite in enforce mode. This
+      // proves the drain/advance migration is complete (every authed advance
+      // path works) AND lets advance-auth.spec.ts assert a bare advance → 401.
+      // Production ships with the log-only default until the TM flips the env.
+      ADVANCE_AUTH: "enforce",
     },
   },
 });

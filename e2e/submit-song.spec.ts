@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { advanceOnce } from "./helpers";
 
 /**
  * E2E: patron submits a song → it appears in the queue list.
@@ -8,8 +9,8 @@ import { test, expect } from "@playwright/test";
  * that the API accepted the submission and the queue UI reflects it.
  */
 test("patron submits a song and it appears in the queue", async ({ page }) => {
-  // Clear the queue first via API to start clean
-  await page.request.post("/api/queue/advance").catch(() => {});
+  // Clear the queue first via API to start clean (authenticated advance — TICKET-45)
+  await advanceOnce(page.request).catch(() => {});
 
   // Navigate to the (default room) patron page — the global flow moved to
   // /[room] in TICKET-9; `/` is now the landing.
