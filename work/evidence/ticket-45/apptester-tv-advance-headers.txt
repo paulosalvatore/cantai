@@ -1,0 +1,29 @@
+# TV Screen token evidence - captured via fetch interceptor in browser
+# TV page: http://localhost:3145/default/tv
+# When TV skip button clicked, the advance call includes X-Boraoke-Screen:
+
+Intercepted advance call #1 (first skip):
+{
+  "url": "/api/queue/advance?room=default",
+  "headers": {
+    "X-Boraoke-Screen": "644cd827adc68da30e3bf7a2a78762f388d53939615e18f1c7d89c7400d496e9"
+  }
+}
+Result: Song advanced from "Song One" (Alice) → "Song Two" (Bob) → HTTP 200
+
+Intercepted advance call #2 (second skip, same token):
+{
+  "url": "/api/queue/advance?room=default",
+  "headers": {
+    "X-Boraoke-Screen": "644cd827adc68da30e3bf7a2a78762f388d53939615e18f1c7d89c7400d496e9"
+  }
+}
+Result: Song advanced HTTP 200
+
+Admin skip call (host session, not advance route):
+{
+  "url": "/api/host/skip?room=default",
+  "method": "POST",
+  "headers": { "Content-Type": "application/json" }
+}
+(Host session cookie sent implicitly — scoped to /api/host path)
