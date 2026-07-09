@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { warmModerationRoutes } from "./helpers";
 
 /**
  * E2E (TICKET-44): venue-optional song moderation.
@@ -22,12 +23,8 @@ async function warmUp(page: Page) {
   await page.request.post("/api/rooms", { data: { name: "warmup" } });
   await page.request.post("/api/host/login", { data: { token: "cantai-dev-host" } });
   await page.request.get("/api/host/session?room=default");
-  await page.request.post("/api/host/moderation?room=default", { data: { moderation: false } });
-  await page.request.get("/api/host/pending?room=default");
-  await page.request.post("/api/host/pending/approve?room=default", { data: { pendingId: "warm" } });
-  await page.request.post("/api/host/pending/reject?room=default", { data: { pendingId: "warm" } });
+  await warmModerationRoutes(page.request);
   await page.request.get("/api/queue?room=default");
-  await page.request.get("/api/queue/pending?room=default&uuid=00000000-0000-4000-8000-000000000000");
   await page.request.post("/api/queue", {
     data: { room: "default", videoId: "dQw4w9WgXcQ", nickname: "warm", patronUuid: "00000000-0000-4000-8000-000000000000", mode: "sing" },
   });

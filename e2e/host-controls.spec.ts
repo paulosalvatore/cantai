@@ -1,5 +1,5 @@
 import { test, expect, type APIRequestContext } from "@playwright/test";
-import { advanceOnce } from "./helpers";
+import { advanceOnce, warmModerationRoutes } from "./helpers";
 
 /**
  * E2E: host controls (TICKET-7) — login → remove → reorder → pause.
@@ -27,6 +27,10 @@ async function warmUp(page: import("@playwright/test").Page, request: APIRequest
   await request.post("/api/host/remove", { data: { entryId: "warmup" } });
   await request.post("/api/host/reorder", { data: { entryId: "warmup", newIndex: 0 } });
   await request.get("/api/queue");
+  // TICKET-44: the authed admin dashboard now polls /api/host/pending (and the
+  // patron page /api/queue/pending) — warm them BEFORE seeding, or their first
+  // compilation resets the memory store mid-test and wipes the seeded queue.
+  await warmModerationRoutes(request);
   // Compile the /admin bundle + its client chunks once.
   await page.goto("/default/admin");
   await page.getByLabel("Código do host").waitFor();

@@ -77,6 +77,32 @@ export async function advanceOnce(
 }
 
 /**
+ * Warm-compile the TICKET-44 moderation/pending routes (shared deflake helper).
+ *
+ * WHY: under `next dev` with the in-memory store, a route's FIRST compilation
+ * re-evaluates the shared store/rooms modules and resets their singletons —
+ * wiping any state seeded before that compile (the documented memory-driver
+ * caveat; production uses durable Upstash). TICKET-44 made the authed admin
+ * dashboard poll `/api/host/pending` and the patron page poll
+ * `/api/queue/pending`, so ANY spec that seeds state and then opens those pages
+ * triggers these compiles mid-test unless they were warmed first. host-controls
+ * hit exactly this: the post-login pending poll compiled `/api/host/pending`,
+ * the store reset, and the seeded queue vanished at the remove assertion.
+ *
+ * Call this from every spec's warmUp BEFORE seeding (alongside its existing
+ * route warms). All calls are fire-to-compile — responses are irrelevant.
+ */
+export async function warmModerationRoutes(request: APIRequestContext) {
+  await request.get("/api/host/pending");
+  await request.post("/api/host/pending/approve", { data: { pendingId: "warmup" } });
+  await request.post("/api/host/pending/reject", { data: { pendingId: "warmup" } });
+  await request.post("/api/host/moderation", { data: { moderation: false } });
+  await request.get(
+    "/api/queue/pending?uuid=00000000-0000-4000-8000-000000000000",
+  );
+}
+
+/**
  * Drain a room's queue to empty via authenticated advances. Real test seeds are
  * a handful of entries, comfortably under the per-room advance rate limit; the
  * loop bound is only a runaway guard.
