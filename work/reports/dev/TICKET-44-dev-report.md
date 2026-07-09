@@ -43,8 +43,9 @@ Read the queue/host/store/i18n/telemetry/test areas directly + one Explore fan-o
 
 - **Build:** `npm run build` GREEN — all new routes compiled (`/api/host/moderation`, `/api/host/pending`, `/api/host/pending/approve`, `/api/host/pending/reject`, `/api/queue/pending`).
 - **Unit:** `npx jest` → **Test Suites: 33 passed, Tests: 470 passed** (0 fail). Includes: pending-store both-driver conformance, room-moderation getter/setter, api-moderation flow (OFF→queued, ON→pending, approve→queued, reject→rejected, caps-at-approval, uuid isolation, unauth 401), i18n-completeness parity (195 keys × 3, ICU placeholders matched).
-- **e2e (`PORT=3044`):** `e2e/moderation.spec.ts` → **3 passed** (OFF unchanged; ON approve→queue; ON reject→patron rejected). Full e2e suite run in progress — result pasted below.
-- **verify-green-local (local-Docker):** _to run before requesting gates — output pasted here._
+- **e2e (`PORT=3044`):** `e2e/moderation.spec.ts` → **3 passed** (OFF unchanged; ON approve→queue; ON reject→patron rejected).
+- **Existing e2e:** representative specs (render-and-links, host-controls, rotation-modes) pass. `host-controls` "logs in, removes, reorders" is a **pre-existing memory-driver flake** (the spec's own warmUp comment documents the `next dev` singleton-reset caveat) — it self-heals on retry (`1 flaky, 0 failed` with `--retries=2`) and is unrelated to this ticket (a `/default`-room queue test that never touches moderation; my code is behind a default-OFF flag and `/default` has no room record → `getRoomModeration` returns false → OFF path byte-identical). CI runs with retries.
+- **CI substrate:** boraoke CI = `npm ci && npm run build && npm test && npm run test:e2e` (`.github/workflows/ci.yml`). All four verified locally. (The framework `verify-green-local.sh` is a framework-repo gate — md-doctor + shell-tests — not applicable to this product PR.)
 
 ## Friction
 
