@@ -51,6 +51,7 @@ Read the queue/host/store/i18n/telemetry/test areas directly + one Explore fan-o
 
 - Worktrees carry no `node_modules` — needed `npm ci` in the worktree before build/e2e (expected; noted for the App Tester who reuses this worktree).
 - The visually-hidden switch checkbox (`opacity:0`) is unclickable by Playwright; added `data-testid="moderation-track"` on the visible track span as the click target. Standard a11y-switch pattern gotcha.
+- **GitHub Actions stopped creating runs after 04:36Z (2026-07-09):** the fix tip `844d440` was pushed (Vercel deployed it), a close/reopen kick was tried — no CI run created for ANY new event, while `actions/permissions` reports enabled. Consistent with exhausted private-repo Actions minutes (billing) — the known billing-gated-Actions class. Local verification on this exact tip runs the identical CI command set and is GREEN: `npm run build` + `npx jest` (487/487) + cold `npm run test:e2e` (46/46).
 
 ## Deferred follow-ups (non-blocking)
 
