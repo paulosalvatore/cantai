@@ -84,7 +84,10 @@
     "notFoundLead": "Esa sala no existe (o el enlace está mal).",
     "notFoundEphemeral": "⚠️ Las salas todavía son <b>temporales</b> y pueden expirar cuando el servidor se reinicia. Las salas permanentes están en camino.",
     "notFoundRecreate": "Recrear sala “{name}”",
-    "notFoundBack": "Volver al inicio"
+    "notFoundBack": "Volver al inicio",
+    "pendingTitle": "Tu canción",
+    "pendingWaiting": "⏳ Esperando la aprobación del anfitrión",
+    "pendingRejected": "El anfitrión no aprobó esta canción. ¿Quieres elegir otra?"
   },
   "Tv": {
     "venueFallback": "noche de karaoke",
@@ -138,7 +141,18 @@
     "modeChanged": "Modo cambiado a {mode} — fila reordenada.",
     "languageLabel": "Idioma de la sala",
     "languageHint": "La TV y el idioma por defecto del público siguen este idioma.",
-    "sessionExpired": "Tu sesión expiró — entra con el código de la sala."
+    "sessionExpired": "Tu sesión expiró — entra con el código de la sala.",
+    "moderationLabel": "Moderación de canciones",
+    "moderationHint": "Con esto activado, cada canción entra en una lista de aprobación y solo va a la TV después de que la apruebes.",
+    "moderationOn": "activada",
+    "moderationOff": "desactivada",
+    "pendingTitle": "Aprobaciones",
+    "pendingEmpty": "Ninguna canción esperando aprobación.",
+    "pendingApprove": "Aprobar",
+    "pendingReject": "Rechazar",
+    "pendingApproveAria": "Aprobar la canción de {nickname}",
+    "pendingRejectAria": "Rechazar la canción de {nickname}",
+    "pendingApproveFailed": "No se pudo aprobar ahora — la fila puede estar llena. Intenta de nuevo."
   },
   "Modes": {
     "sectionLabel": "Modo de la noche",
@@ -196,7 +210,8 @@
     "submitListenCap": "Ya tienes {cap} pedidos de canciones en la fila — espera a que suene una.",
     "submitDuplicate": "Ya pediste esa canción — ya está en la fila.",
     "submitTableCap": "Tu mesa ya tiene {cap} canciones en la fila — espera a que suene una.",
-    "submitPersonCap": "Ya tienes {cap} canciones en la fila — espera a que suene una para agregar otra."
+    "submitPersonCap": "Ya tienes {cap} canciones en la fila — espera a que suene una para agregar otra.",
+    "pendingFull": "Hay muchas canciones esperando aprobación ahora — intenta de nuevo en un rato."
   },
   "Meta": {
     "title": "Boraoke — la fila de karaoke de tu bar",

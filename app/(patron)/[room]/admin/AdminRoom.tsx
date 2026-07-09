@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import type { QueueEntry } from "@/lib/store";
+import type { PendingEntry } from "@/lib/pending-types";
 import { computeStats } from "@/components/host/stats";
 import ModeSwitcher from "@/components/host/ModeSwitcher";
 import { DEFAULT_ROOM_MODE, MODE_MESSAGE_KEY, type RoomMode } from "@/lib/rotation-modes";
@@ -65,6 +66,11 @@ export default function AdminRoom({
     initialLanguage ?? DEFAULT_LOCALE,
   );
   const [langBusy, setLangBusy] = useState(false);
+  // Moderation (TICKET-44) — optimistic toggle + pending-approval list.
+  const [moderation, setModeration] = useState(false);
+  const [modBusy, setModBusy] = useState(false);
+  const [pending, setPending] = useState<PendingEntry[]>([]);
+  const [approveMsg, setApproveMsg] = useState("");
 
   const roomQuery = `?room=${encodeURIComponent(roomId)}`;
 
@@ -99,6 +105,20 @@ export default function AdminRoom({
       setQueue(data.items ?? []);
       setPaused(Boolean(data.paused));
       if (data.mode) setMode(data.mode as RoomMode);
+      setModeration(Boolean(data.moderation));
+    } catch {
+      // network hiccup — next poll retries
+    }
+  }, [roomQuery]);
+
+  // Poll the room's pending-approval list (TICKET-44). Host-authed, room-scoped;
+  // the public queue / TV never see any of this.
+  const fetchPending = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/host/pending${roomQuery}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      setPending((data.items ?? []) as PendingEntry[]);
     } catch {
       // network hiccup — next poll retries
     }
@@ -107,9 +127,13 @@ export default function AdminRoom({
   useEffect(() => {
     if (auth !== "authed") return;
     fetchQueue();
-    const interval = setInterval(fetchQueue, POLL_INTERVAL);
+    fetchPending();
+    const interval = setInterval(() => {
+      fetchQueue();
+      fetchPending();
+    }, POLL_INTERVAL);
     return () => clearInterval(interval);
-  }, [auth, fetchQueue]);
+  }, [auth, fetchQueue, fetchPending]);
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -193,6 +217,47 @@ export default function AdminRoom({
       setRoomLanguage(prev);
     } finally {
       setLangBusy(false);
+    }
+  }
+
+  async function toggleModeration(next: boolean) {
+    if (modBusy) return;
+    setModBusy(true);
+    const prev = moderation;
+    setModeration(next); // optimistic
+    try {
+      const res = await fetch(`/api/host/moderation${roomQuery}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ moderation: next }),
+      });
+      if (!res.ok) setModeration(prev);
+      else await fetchPending();
+    } catch {
+      setModeration(prev);
+    } finally {
+      setModBusy(false);
+    }
+  }
+
+  async function decidePending(pendingId: string, action: "approve" | "reject") {
+    if (busy) return;
+    setBusy(true);
+    setApproveMsg("");
+    try {
+      const res = await fetch(`/api/host/pending/${action}${roomQuery}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pendingId }),
+      });
+      if (!res.ok && action === "approve") {
+        setApproveMsg(t("pendingApproveFailed"));
+      }
+      await Promise.all([fetchPending(), fetchQueue()]);
+    } catch {
+      await fetchPending();
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -294,6 +359,99 @@ export default function AdminRoom({
         <p className={styles.soonNote} role="status" data-testid="mode-toast">
           {modeMsg}
         </p>
+      )}
+
+      {/* Moderation toggle (TICKET-44) */}
+      <div className={styles.moderationCard} data-testid="moderation-card">
+        <div className={styles.moderationRow}>
+          <span className={styles.moderationName}>{t("moderationLabel")}</span>
+          <label className={styles.switch}>
+            <input
+              type="checkbox"
+              role="switch"
+              aria-label={t("moderationLabel")}
+              data-testid="moderation-toggle"
+              checked={moderation}
+              disabled={modBusy}
+              onChange={(e) => void toggleModeration(e.target.checked)}
+            />
+            <span className={styles.switchTrack} />
+          </label>
+        </div>
+        <p className={styles.moderationHint}>{t("moderationHint")}</p>
+      </div>
+
+      {/* Pending approvals (TICKET-44) — only shown when moderation is ON */}
+      {moderation && (
+        <section
+          className={styles.pendingSection}
+          aria-label={t("pendingTitle")}
+          data-testid="pending-section"
+        >
+          <span className={styles.label}>
+            {t("pendingTitle")}
+            {pending.filter((p) => p.status === "pending").length > 0 && (
+              <span className={styles.pendingBadge} data-testid="pending-badge">
+                {pending.filter((p) => p.status === "pending").length}
+              </span>
+            )}
+          </span>
+          {pending.filter((p) => p.status === "pending").length === 0 ? (
+            <p className={styles.emptyQueue}>{t("pendingEmpty")}</p>
+          ) : (
+            <ul className={styles.pendingList}>
+              {pending
+                .filter((p) => p.status === "pending")
+                .map((p) => (
+                  <li
+                    key={p.pendingId}
+                    className={styles.pendingCard}
+                    data-testid="pending-card"
+                  >
+                    <div className={styles.pendingInfo}>
+                      <div className={styles.who}>
+                        {p.entry.nickname}
+                        {p.entry.table ? (
+                          <span className={styles.meta}>
+                            {" "}
+                            · {tCommon("table")} {p.entry.table}
+                          </span>
+                        ) : null}
+                      </div>
+                      <div className={styles.song}>
+                        {p.entry.title ?? `youtu.be/${p.entry.videoId}`}
+                      </div>
+                    </div>
+                    <div className={styles.pendingActions}>
+                      <button
+                        className={styles.approveBtn}
+                        aria-label={t("pendingApproveAria", { nickname: p.entry.nickname })}
+                        data-testid="pending-approve"
+                        disabled={busy}
+                        onClick={() => decidePending(p.pendingId, "approve")}
+                      >
+                        ✓ {t("pendingApprove")}
+                      </button>
+                      <button
+                        className={styles.rejectBtn}
+                        aria-label={t("pendingRejectAria", { nickname: p.entry.nickname })}
+                        data-testid="pending-reject"
+                        disabled={busy}
+                        onClick={() => decidePending(p.pendingId, "reject")}
+                      >
+                        ✕ {t("pendingReject")}
+                      </button>
+                    </div>
+                  </li>
+                ))}
+            </ul>
+          )}
+          {approveMsg && (
+            <p className={styles.error} role="status" data-testid="pending-approve-msg">
+              {approveMsg}
+            </p>
+          )}
+        </section>
       )}
 
       <div className={styles.cols}>

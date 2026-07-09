@@ -84,7 +84,10 @@
     "notFoundLead": "That room doesn't exist (or the link is wrong).",
     "notFoundEphemeral": "⚠️ Rooms are still <b>temporary</b> and can expire when the server restarts. Permanent rooms are on the way.",
     "notFoundRecreate": "Recreate room “{name}”",
-    "notFoundBack": "Back to start"
+    "notFoundBack": "Back to start",
+    "pendingTitle": "Your song",
+    "pendingWaiting": "⏳ Waiting for the host to approve",
+    "pendingRejected": "The host didn't approve this song. Want to pick another?"
   },
   "Tv": {
     "venueFallback": "karaoke night",
@@ -138,7 +141,18 @@
     "modeChanged": "Mode changed to {mode} — queue reshuffled.",
     "languageLabel": "Room language",
     "languageHint": "The TV and the guest default follow this language.",
-    "sessionExpired": "Your session expired — sign in with the room code."
+    "sessionExpired": "Your session expired — sign in with the room code.",
+    "moderationLabel": "Song moderation",
+    "moderationHint": "With this on, every song lands in an approval list and only hits the TV once you approve it.",
+    "moderationOn": "on",
+    "moderationOff": "off",
+    "pendingTitle": "Approvals",
+    "pendingEmpty": "No songs waiting for approval.",
+    "pendingApprove": "Approve",
+    "pendingReject": "Reject",
+    "pendingApproveAria": "Approve {nickname}'s song",
+    "pendingRejectAria": "Reject {nickname}'s song",
+    "pendingApproveFailed": "Couldn't approve right now — the queue may be full. Try again."
   },
   "Modes": {
     "sectionLabel": "Tonight's mode",
@@ -196,7 +210,8 @@
     "submitListenCap": "You already have {cap} song requests in the queue — wait for one to play.",
     "submitDuplicate": "You already requested that song — it's in the queue.",
     "submitTableCap": "Your table already has {cap} songs in the queue — wait for one to play.",
-    "submitPersonCap": "You already have {cap} songs in the queue — wait for one to play before adding another."
+    "submitPersonCap": "You already have {cap} songs in the queue — wait for one to play before adding another.",
+    "pendingFull": "Lots of songs are waiting for approval right now — try again in a bit."
   },
   "Meta": {
     "title": "Boraoke — your bar's karaoke queue",

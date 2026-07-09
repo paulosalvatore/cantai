@@ -258,3 +258,136 @@
 .gate p { color: var(--text-muted); margin-bottom: 1.5rem; }
 .gateForm { display: flex; flex-direction: column; gap: 0.75rem; text-align: left; }
 .error { color: var(--accent); font-size: 0.85rem; }
+
+/* ── Moderation toggle + pending approvals (TICKET-44) ──────────────────────── */
+.moderationCard {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.9rem 1rem;
+  margin-bottom: 1.25rem;
+}
+.moderationRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.moderationName {
+  font-weight: 600;
+}
+.moderationHint {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 0.4rem;
+  line-height: 1.4;
+}
+/* Simple accessible switch built on a checkbox. */
+.switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.switch input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.switchTrack {
+  width: 46px;
+  height: 26px;
+  border-radius: 999px;
+  background: var(--border);
+  transition: background 0.15s ease;
+  position: relative;
+}
+.switchTrack::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.15s ease;
+}
+.switch input:checked + .switchTrack {
+  background: #4ade80;
+}
+.switch input:checked + .switchTrack::after {
+  transform: translateX(20px);
+}
+.switch input:focus-visible + .switchTrack {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.pendingSection {
+  margin-bottom: 1.5rem;
+}
+.pendingBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.4rem;
+  height: 1.4rem;
+  padding: 0 0.4rem;
+  margin-left: 0.5rem;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+.pendingList {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-top: 0.5rem;
+}
+.pendingCard {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: #211d2e;
+  border: 1px solid #4f46e5;
+  border-radius: var(--radius);
+  padding: 0.7rem 0.9rem;
+}
+.pendingInfo {
+  flex: 1;
+  min-width: 0;
+}
+.pendingActions {
+  display: flex;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+.approveBtn,
+.rejectBtn {
+  border: none;
+  border-radius: var(--radius);
+  padding: 0.4rem 0.7rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.approveBtn {
+  background: #16a34a;
+  color: #fff;
+}
+.rejectBtn {
+  background: transparent;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+}
+.approveBtn:disabled,
+.rejectBtn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
