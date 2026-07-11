@@ -1,5 +1,20 @@
 # cantai — Manager Log
 
+## 2026-07-11 — Heartbeat fire #10 (autonomous, unattended) — 🟢 PROGRESSED (delivered TICKET-49 + Step 0.5 reconciliation)
+
+- **Step 0 — Cold-resume:** rules reloaded (CLAUDE.md §§1–4); shared framework HEAD on `main` (clean); boraoke checkout on `main`. Read BOARD.md + MANAGER-LOG.md fires #1–#9.
+- **Step 0.5 — Re-verified the load-bearing premise → STALE again.** The board (fire #9) framed "PR #25 is the only open PR, blocked by the F110 JSONL false-conflict." Probed reality: `origin/main` tip = `b06085d TICKET-44 (#25)` (**#25 MERGED**), `gh pr list --state open` = **[]** (pile fully drained), `curl -sI https://boraoke.com/` → **200**. The TL resolved the union-conflict and merged #25. Reconciled the board: TICKET-44 → DONE, PR #25 Needs-user → RESOLVED.
+- **Parallel-driver check:** sole live fire (PID 70171); no concurrent driver. The `.worktrees/ticket-49` partial work (the `rejectAllPending()` store method, uncommitted, branch at origin/main tip, no PR) was from a **dead** prior fire (12:39, ended 13:03) — no live owner → safe to complete. Reused it rather than re-implement (cost-conscious); honors the rule's intent (no racing/clobbering a live driver).
+- **Step 1 — Selected TICKET-49** (moderation ON→OFF strands pending submissions forever — [MED] correctness bug, #1 recorded PR#25-opus follow-up, non-gated code).
+- **Step 2 — Full gate chain (all green):**
+  - **Dev** (completed route ON→OFF auto-reject + `rejectedPending` telemetry prop + transition-matrix & driver-conformance tests atop the existing store method): **530/530 tests, `npm run build` exit 0.** Committed + pushed to `origin/ticket/49-moderation-off-orphans`.
+  - **App Tester: N/A** — backend behavior + tests only, no UI/render change (consistent with TICKET-46/47/48 precedent).
+  - **Reviewer (opus, D-022): APPROVE-WITH-FOLLOWUPS.** Transition gating verified exact (ON→OFF only; OFF→ON / ON→ON / OFF→OFF / room-not-found all reject 0); never auto-approves (no queue leak); both drivers idempotent+room-scoped+accurate-count; tests prove every AC; host-auth unchanged. Report: `work/reports/review/TICKET-49-review.md`.
+- **Step 3 — Decision: DELIVER, not auto-merge.** boraoke.com auto-deploys on any merge to `main`, so an unattended fire never triggers it. **PR #31 opened, left OPEN** for the TL: https://github.com/paulosalvatore/boraoke/pull/31 (behavior is destructive-by-design — ON→OFF discards outstanding pending as rejected; intended/spec'd).
+- **Follow-up filed:** F-1 (LOW, Upstash-only) — `UpstashPendingStore.rejectAllPending` read→per-item-`set` loop carries the existing single-`reject` lost-update race class; fold into Lua/CAS if `reject`/`take` ever move there. Only matters once the Upstash pending driver is live (prod runs the in-memory driver today).
+- **Selection safety:** shared framework HEAD on `main`; boraoke on `main`; touched NO other driver's PR/branch/worktree; edited only boraoke's own `work/status/BOARD.md` + `MANAGER-LOG.md` additively.
+- **Outcome:** `progressed`.
+
 ## 2026-07-11 — Heartbeat fire #9 (autonomous, unattended) — 🟢 PROGRESSED (stale-premise reconciliation, Step 0.5)
 
 - **Step 0 — Cold-resume:** rules reloaded (CLAUDE.md §§1–4); shared framework HEAD on `main` (clean); boraoke checkout on `main`. Read BOARD.md + MANAGER-LOG.md fires #1–#8.
