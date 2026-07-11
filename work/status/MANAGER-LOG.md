@@ -1,5 +1,23 @@
 # cantai — Manager Log
 
+## 2026-07-11 — Heartbeat fire #7 (autonomous, unattended) — 🟡 IDLE (third consecutive undeliverable fire)
+
+- **Step 0 — Cold-resume:** rules reloaded; shared framework HEAD on `main` (clean); boraoke checkout (`/Users/paulosalvatore/Documents/GitHub/cantai`) on `main`. Reviewed BOARD.md + MANAGER-LOG.md + fire #1–#6 logs + open-PR state.
+- **Step 1 — Select → nothing deliverable.** Confirmed via `gh pr list`: the same **5 PRs (#30/#29/#28/#27/#25) are still open**, and **no human merge has landed** since fire #4 — the only commits since #5 are the heartbeat status commits themselves (last real merge: #26 on 07-09). Every remaining backlog item is **CLAIMED** by one of those open PRs (or would collide with it), **deploy-gated** (any merge to boraoke `main` auto-deploys to live boraoke.com — an unattended heartbeat never triggers a client-facing deploy), or **TL-blocked** (Vercel rate-limit, YouTube quota, OAuth console, EN/ES OG cards). The one genuinely-unclaimed non-trivial item — "Deflake TV e2e on CI" — is non-deterministic/expensive for a headless fire and would mint a **6th** undeliverable deploy-gated PR onto the stack (fires #5/#6 already made that call). Reconciliation was done in #5, so no fresh grooming exists.
+- **Step 3 — Decision: IDLE, no merge, no new PR.** Per parallel-driver "when in doubt, idle" + TL cost-consciousness. Nothing here is auto-mergeable regardless.
+- **Class-level action (not busywork):** three consecutive fires now hitting the identical human-merge wall is a systemic waste, so filed **ONE framework-intake note** (the sanctioned single-file framework write for a product-scoped tab) — `work/self-improvement/inbox/2026-07-11-heartbeat-human-merge-saturation-backoff.md` — proposing a heartbeat auto-backoff for merge-saturated products (after N idle fires with ≥1 open heartbeat PR, skip the expensive cold-resume and emit a cheap "still saturated" line, or auto-pause + resume-on-drain). This elevates the "pause the heartbeat" recommendation from per-fire product logs into the framework backlog so it actually gets built.
+- **Step 4 — Recorded:** additive fire-#7 entry here + BOARD.md header, committed/pushed to boraoke `main`. Durable launchd — no re-arm needed.
+
+### Open items for you (TL) — unchanged, this is the whole bottleneck
+5 gate-green PRs are stacked awaiting **your** merge, each triggering a boraoke.com prod deploy:
+- **#30** TICKET-48 — host-login throttle → Upstash cross-instance
+- **#29** TICKET-47 — unplayable-skip rate exempt
+- **#28** TICKET-46 — kiosk-TV token self-heal (behavior-neutral in log mode — lowest-risk merge)
+- **#27** TICKET-24a — rotation nits
+- **#25** TICKET-44 — moderation (CI-WAIT)
+
+The constraint is **human-merge throughput, not dev throughput.** Recommendation (now made 3×): batch-merge the 5 when the Vercel rate-limit is clear (it was ~24h from 07-09, so almost certainly clear now), **or pause the boraoke heartbeat** until the pile drains — otherwise hourly fires keep burning tokens on an undeliverable pile (the filed framework note proposes automating exactly this). Still separately TL-blocked: YouTube quota form, Google OAuth console origins, EN/ES OG cards (debug-Chrome login).
+
 ## 2026-07-11 — Heartbeat fire #4 (autonomous, unattended)
 
 - **Advanced:** TICKET-48 (security hardening, LOW/MED) — **host-login failure throttle → Upstash-backed cross-instance limiter** (PR #10 M-1 follow-up). The per-IP throttle in `lib/host-auth.ts` was an in-memory `Map` per process; on Vercel serverless each lambda keeps its own map, so online host-token guessing was not actually rate-limited cross-instance. Fix: new **`lib/rate-limit-counter.ts`** — a reusable fixed-window per-key counter that uses Upstash Redis (`INCR`+`EXPIRE`) when configured and falls back to the existing in-memory LRU `Map` when Upstash env is absent (dev/CI/zero-secret boot byte-unchanged). Throttle fns became async; `app/api/host/login/route.ts` awaits them. Tunables unchanged (10 failures/60s). Fail-open on Redis error (defense-in-depth; primary HMAC/timing-safe auth untouched). Built generic so room-create/search limiters can adopt it later.
