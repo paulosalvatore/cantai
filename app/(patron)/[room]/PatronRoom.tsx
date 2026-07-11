@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { useTranslations } from "next-intl";
 import type { QueueEntry, Mode } from "@/lib/store";
+import type { PendingEntry } from "@/lib/pending-types";
 import { MODE_MESSAGE_KEY, type RoomMode } from "@/lib/rotation-modes";
 import SongSearch, { type SongSelection } from "@/components/SongSearch";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
@@ -61,6 +62,9 @@ export default function PatronRoom({
   const [roomMode, setRoomMode] = useState<RoomMode | null>(null);
   const [reorderNotice, setReorderNotice] = useState("");
   const prevModeRef = useRef<RoomMode | null>(null);
+
+  // Moderation (TICKET-44): this patron's own pending/rejected submissions.
+  const [myPending, setMyPending] = useState<PendingEntry[]>([]);
 
   // Add-to-queue CTA — jumped into view + focused once a song is chosen (TICKET-40 §1).
   const submitBtnRef = useRef<HTMLButtonElement | null>(null);
@@ -129,11 +133,32 @@ export default function PatronRoom({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roomId]);
 
+  // Poll THIS patron's own pending/rejected submissions (TICKET-44). uuid-scoped
+  // and public — only ever returns entries this patronUuid submitted. Skips until
+  // the uuid is loaded.
+  const fetchPending = useCallback(async () => {
+    if (!patronUuid) return;
+    try {
+      const res = await fetch(
+        `/api/queue/pending?room=${encodeURIComponent(roomId)}&uuid=${encodeURIComponent(patronUuid)}`,
+      );
+      if (!res.ok) return;
+      const data = await res.json();
+      setMyPending((data.items ?? []) as PendingEntry[]);
+    } catch {
+      // network hiccup — next poll retries
+    }
+  }, [roomId, patronUuid]);
+
   useEffect(() => {
     fetchQueue();
-    const interval = setInterval(fetchQueue, POLL_INTERVAL);
+    fetchPending();
+    const interval = setInterval(() => {
+      fetchQueue();
+      fetchPending();
+    }, POLL_INTERVAL);
     return () => clearInterval(interval);
-  }, [fetchQueue]);
+  }, [fetchQueue, fetchPending]);
 
   const handleSelect = useCallback((sel: SongSelection | null) => {
     setParsedVideoId(sel?.videoId ?? null);
@@ -222,6 +247,9 @@ export default function PatronRoom({
       setParsedVideoId(null);
       setSearchKey((k) => k + 1);
       fetchQueue();
+      // TICKET-44: a moderated submit lands in pending (202), not the queue —
+      // refresh the patron's own pending list so the "aguardando" card appears.
+      fetchPending();
     } catch {
       setSubmitError(tCommon("networkError"));
     } finally {
@@ -367,6 +395,40 @@ export default function PatronRoom({
           </button>
         </form>
       </section>
+
+      {/* Moderation: this patron's pending / rejected submissions (TICKET-44).
+          Shown OUTSIDE the public queue — a pending song is NOT in the queue and
+          not on TV until the host approves it. */}
+      {myPending.length > 0 && (
+        <section data-testid="patron-pending" style={{ marginBottom: "1.5rem" }}>
+          <h2 style={{ fontSize: "1.1rem", marginBottom: "0.5rem" }}>{t("pendingTitle")}</h2>
+          <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: "0.6rem" }}>
+            {myPending.map((p) => {
+              const rejected = p.status === "rejected";
+              return (
+                <li
+                  key={p.pendingId}
+                  data-testid={rejected ? "patron-pending-rejected" : "patron-pending-waiting"}
+                  style={{
+                    background: "var(--surface)",
+                    border: `1px dashed ${rejected ? "var(--accent)" : "#818cf8"}`,
+                    borderRadius: "var(--radius)",
+                    padding: "0.75rem 1rem",
+                    opacity: rejected ? 0.85 : 1,
+                  }}
+                >
+                  <p style={{ fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {p.entry.title ?? `youtu.be/${p.entry.videoId}`}
+                  </p>
+                  <p style={{ fontSize: "0.8rem", color: rejected ? "var(--accent)" : "var(--text-muted)", marginTop: "4px" }}>
+                    {rejected ? t("pendingRejected") : t("pendingWaiting")}
+                  </p>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
 
       {/* Player hint (TICKET-20). DESIGN DECISION: the patron page has NO video
           player by design — the karaoke video plays on the venue's shared TV
