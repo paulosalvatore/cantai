@@ -77,3 +77,11 @@ TL directed compact+restart. Full state for tm-resume:
 **TL items outstanding:** aistudio.google.com login in debug-Chrome (EN/ES OG cards, TICKET-33c agent parked); Google OAuth console: add boraoke.com origins/redirects; YouTube quota form (text: work/youtube-quota-form.md).
 
 **Prompt archive:** session 2026-07-05-session-003 curated through 022; 9de2524a staging flushed (8 real prompts verified archived, 10 task-notification hook-noise deleted, inbox note filed).
+
+## 2026-07-11 — Heartbeat fire (autonomous, unattended)
+
+- **Advanced:** TICKET-24a (LOW) — the two PR #14 sonnet NITs on the board: (NIT-1) corrected the stale `lib/rotation.ts` module JSDoc that still claimed the re-lay uses the frozen `reorder` op (it uses bulk `rewrite`/merge-on-write since TICKET-21); (NIT-2) guarded the discarded `store.addEntry` boolean on the `/api/host/skip` grace-requeue path — a `false` (queue full after removeEntry) was silently dropping the singer; now fires a `host_action` telemetry signal + returns `{ok:false, requeued:false, reason:"queue-full"}` at 200 (fail-open convention). Tests added in `__tests__/host-api.test.ts`.
+- **Selection rationale:** skipped the CLAIMED in-flight `ticket-44` moderation worktree (PR #25 CI-WAIT) and ALL moderation-adjacent follow-ups (toggle-OFF orphans, pending-store TTL, over-echo trims, F2 unplayable) to avoid racing that code; skipped TL-blocked items (Vercel rate-limit, YouTube quota, OAuth console, EN/ES OG cards). Picked a small, safe, non-gated, clearly-idle item touching none of the claimed code. Stale worktrees `ticket-33`/`ticket-33b` (DONE tickets) left untouched — not mine.
+- **Gate chain:** worktree `.worktrees/ticket-24a` off origin/main → Dev (462/462 unit, build+typecheck+lint green, commit 09ee04a) → App Tester N/A (backend-only, no UI) → Cyber folded into Reviewer (host-token-guarded branch, no new surface) → Reviewer opus D-022 **APPROVE**, security-clean, 24/24, scope-disciplined.
+- **Decision: DELIVER, not auto-merge.** boraoke.com is a live client site with Vercel auto-deploy on `main` — any merge = client-facing prod deploy, which the unattended heartbeat never triggers. PR **#27** left OPEN for the TL to merge. Board "Needs user" updated with PR link + the exact merge-consequence note.
+- **Worktree:** `.worktrees/ticket-24a` kept until PR #27 merges (then worktree-cleanup).

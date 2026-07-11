@@ -4,6 +4,8 @@ _Last updated: 2026-07-09 (24 PRs; #26 skip-auth merged/log-mode; #25 moderation
 
 ## Needs user (TL)
 
+- 🟢 **PR #27 (TICKET-24a) ready to merge (2026-07-11, heartbeat)** — LOW hardening: rotation.ts JSDoc fix + grace-requeue `addEntry`-return guard (no silent singer-drop on full queue). Full gate chain green (Dev 462/462, Reviewer opus APPROVE + security-clean). Left OPEN — merge triggers a boraoke.com prod deploy (Vercel auto-deploy); your call. https://github.com/paulosalvatore/boraoke/pull/27
+
 - 🟡 **Vercel deployment rate limit hit (2026-07-09)** — "retry in 24 hours" on the hobby plan; production deploys of new merges are delayed until it clears (or upgrade to Pro). #26 is behavior-neutral (log mode) so no urgency; #25 moderation will deploy once the limit clears.
 
 - 🟢 RESOLVED 2026-07-08: boraoke.com DNS live (TL). NEXTAUTH_URL switched to https://boraoke.com (TM).
@@ -27,7 +29,7 @@ _Last updated: 2026-07-09 (24 PRs; #26 skip-auth merged/log-mode; #25 moderation
 
 - **[HIGH] Atomic store RMW (PR #14 opus)** — WATCH/Lua CAS on QueueStore rewrite/removeEntry/reorder + concurrency regression test. Closes the lost-submit window (~0.1-0.3/busy night in bursts, patron-visible+permanent) AND the pre-existing host-op races in one change. First candidate for the next dev slot.
 - **[LOW] Strip patronUuid from public GET /api/queue projection** (griefing lockout via per-uuid limiter) — weigh against patron-page own-row highlighting (may need a hashed marker instead).
-- **[LOW] rotation.ts:13 stale JSDoc; grace-path addEntry-return check** (PR #14 sonnet NITs).
+- ✅ DELIVERED (PR #27, awaiting human merge) **[LOW] rotation.ts:13 stale JSDoc; grace-path addEntry-return check** (PR #14 sonnet NITs) — heartbeat 2026-07-11. Full chain green (Dev 462/462, App Tester N/A backend-only, Reviewer opus APPROVE incl. security). NOT auto-merged: boraoke.com live Vercel-auto-deploy. Worktree `.worktrees/ticket-24a`.
 
 - **BINDING before the feedback-intake ticket (#12/framework intake): Intake-contract condition (PR #11 opus, HIGH)** — feedback ids are stamped at POST but index-commit lands later; id-order ≠ commit-order under concurrent writes, so a naive `since = max(id)` cursor can silently lose entries forever. Intake MUST use lagging watermark + id-dedupe (or the index made commit-ordered) — never the naive loop.
 - Host login throttle → edge/Upstash-backed (per-lambda in-memory now; PR #10 M-1 note).
