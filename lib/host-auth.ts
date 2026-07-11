@@ -40,6 +40,13 @@ import "server-only";
 
 import { createHmac, timingSafeEqual } from "crypto";
 import type { NextRequest } from "next/server";
+import {
+  isThrottled,
+  registerFailure,
+  resetKey,
+  _clearAll,
+  type CounterOptions,
+} from "./rate-limit-counter";
 import { DEFAULT_ROOM, getRoom, hashHostCode, isValidRoomId } from "./rooms";
 
 /**
@@ -172,23 +179,27 @@ export function hostCookieOptions() {
 // ─── Login-failure throttle (security M-1) ───────────────────────────────────
 //
 // Per-IP failure throttle for POST /api/host/login: without it the token is
-// open to unlimited online guessing. In-memory, per-process — on serverless
-// hosting each lambda instance keeps its own buckets, so this is a strong
-// attack-surface reduction, NOT a hard global cap (an edge/Upstash-backed
-// throttle is a recorded follow-up). Same standalone pattern as TICKET-8's
-// search limiter (deliberately not imported — parallel-wave file ownership).
+// open to unlimited online guessing. This now delegates to the shared
+// `lib/rate-limit-counter` helper, which is CROSS-INSTANCE when Upstash is
+// configured (INCR-based fixed-window counter in Redis) and falls back to the
+// same in-process Map/LRU logic when it is not — so on Vercel an attacker
+// spraying guesses across warm lambdas is actually capped, while dev/CI and the
+// zero-secret boot keep the exact prior behavior. This closes the recorded
+// PR #10 M-1 follow-up ("Host login throttle → edge/Upstash-backed"). The
+// functions are async because the Redis path is async; call sites already run
+// in async routes and simply `await`.
 
 const THROTTLE_MAX_FAILURES = 10;
 const THROTTLE_WINDOW_MS = 60_000;
-/** Cap tracked IPs so a spoofed-IP flood can't grow memory unbounded (LRU). */
-const THROTTLE_MAX_TRACKED_IPS = 1000;
+const LOGIN_THROTTLE_OPTS: CounterOptions = {
+  max: THROTTLE_MAX_FAILURES,
+  windowMs: THROTTLE_WINDOW_MS,
+};
 
-interface FailureBucket {
-  count: number;
-  windowStart: number;
+/** Namespaced counter key for a login-failure IP (helper prefixes `rl:`). */
+function loginKey(ip: string): string {
+  return `login:${ip}`;
 }
-
-const loginFailures = new Map<string, FailureBucket>();
 
 /**
  * Best-effort client IP: first hop of x-forwarded-for (set by the platform
@@ -204,42 +215,23 @@ export function clientIpFrom(req: NextRequest): string {
 }
 
 /** True when this IP has exhausted its failure budget for the current window. */
-export function isLoginThrottled(ip: string): boolean {
-  const bucket = loginFailures.get(ip);
-  if (!bucket) return false;
-  if (Date.now() - bucket.windowStart >= THROTTLE_WINDOW_MS) {
-    loginFailures.delete(ip); // stale window — expired
-    return false;
-  }
-  return bucket.count >= THROTTLE_MAX_FAILURES;
+export function isLoginThrottled(ip: string): Promise<boolean> {
+  return isThrottled(loginKey(ip), LOGIN_THROTTLE_OPTS);
 }
 
 /** Record one failed login attempt for this IP. */
-export function registerLoginFailure(ip: string): void {
-  const now = Date.now();
-  const bucket = loginFailures.get(ip);
-  if (!bucket || now - bucket.windowStart >= THROTTLE_WINDOW_MS) {
-    // New or expired window. Evict the oldest-inserted entry when at capacity
-    // (Map preserves insertion order — cheap LRU-ish bound).
-    if (!loginFailures.has(ip) && loginFailures.size >= THROTTLE_MAX_TRACKED_IPS) {
-      const oldest = loginFailures.keys().next().value;
-      if (oldest !== undefined) loginFailures.delete(oldest);
-    }
-    loginFailures.delete(ip); // re-insert to refresh insertion order
-    loginFailures.set(ip, { count: 1, windowStart: now });
-    return;
-  }
-  bucket.count += 1;
+export function registerLoginFailure(ip: string): Promise<void> {
+  return registerFailure(loginKey(ip), LOGIN_THROTTLE_OPTS);
 }
 
 /** Clear the failure bucket for this IP (successful login). */
-export function resetLoginThrottle(ip: string): void {
-  loginFailures.delete(ip);
+export function resetLoginThrottle(ip: string): Promise<void> {
+  return resetKey(loginKey(ip));
 }
 
-/** Test-only helper: wipe all throttle state. */
+/** Test-only helper: wipe all in-memory throttle state (memory path only). */
 export function _clearLoginThrottle(): void {
-  loginFailures.clear();
+  _clearAll();
 }
 
 /**

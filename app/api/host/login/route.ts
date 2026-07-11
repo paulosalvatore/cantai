@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
   // Per-IP failure throttle (security M-1) — blocks unlimited online token
   // guessing. Checked before parsing so throttled callers are rejected cheaply.
   const ip = clientIpFrom(req);
-  if (isLoginThrottled(ip)) {
+  if (await isLoginThrottled(ip)) {
     return NextResponse.json(
       { error: "Too many failed attempts — try again in a minute." },
       { status: 429 },
@@ -63,10 +63,10 @@ export async function POST(req: NextRequest) {
       : undefined;
 
   if (!(await verifyHostToken(roomId, token))) {
-    registerLoginFailure(ip);
+    await registerLoginFailure(ip);
     return NextResponse.json({ error: "Invalid host token" }, { status: 401 });
   }
-  resetLoginThrottle(ip);
+  await resetLoginThrottle(ip);
 
   const session = await issueSession(roomId);
   if (!session) {
