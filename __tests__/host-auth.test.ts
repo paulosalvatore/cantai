@@ -175,30 +175,30 @@ describe("login throttle helpers (security M-1)", () => {
   beforeEach(() => _clearLoginThrottle());
   afterEach(() => jest.useRealTimers());
 
-  it("trips at the failure cap and resets explicitly", () => {
+  it("trips at the failure cap and resets explicitly", async () => {
     const ip = "203.0.113.50";
     for (let i = 0; i < 10; i++) {
-      expect(isLoginThrottled(ip)).toBe(false);
-      registerLoginFailure(ip);
+      expect(await isLoginThrottled(ip)).toBe(false);
+      await registerLoginFailure(ip);
     }
-    expect(isLoginThrottled(ip)).toBe(true);
-    resetLoginThrottle(ip);
-    expect(isLoginThrottled(ip)).toBe(false);
+    expect(await isLoginThrottled(ip)).toBe(true);
+    await resetLoginThrottle(ip);
+    expect(await isLoginThrottled(ip)).toBe(false);
   });
 
-  it("expires the window after 60s", () => {
+  it("expires the window after 60s", async () => {
     jest.useFakeTimers();
     const ip = "203.0.113.51";
-    for (let i = 0; i < 10; i++) registerLoginFailure(ip);
-    expect(isLoginThrottled(ip)).toBe(true);
+    for (let i = 0; i < 10; i++) await registerLoginFailure(ip);
+    expect(await isLoginThrottled(ip)).toBe(true);
     jest.advanceTimersByTime(60_001);
-    expect(isLoginThrottled(ip)).toBe(false);
+    expect(await isLoginThrottled(ip)).toBe(false);
   });
 
-  it("caps tracked IPs (LRU eviction, no unbounded growth)", () => {
-    registerLoginFailure("first-ip");
-    for (let i = 0; i < 1000; i++) registerLoginFailure(`flood-${i}`);
-    for (let i = 0; i < 9; i++) registerLoginFailure("first-ip");
-    expect(isLoginThrottled("first-ip")).toBe(false);
+  it("caps tracked IPs (LRU eviction, no unbounded growth)", async () => {
+    await registerLoginFailure("first-ip");
+    for (let i = 0; i < 1000; i++) await registerLoginFailure(`flood-${i}`);
+    for (let i = 0; i < 9; i++) await registerLoginFailure("first-ip");
+    expect(await isLoginThrottled("first-ip")).toBe(false);
   });
 });
