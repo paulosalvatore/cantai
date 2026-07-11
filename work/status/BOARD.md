@@ -1,6 +1,7 @@
 # cantai — Board
 
-_Last updated: 2026-07-11 (heartbeat #5: backlog reconciliation — corrected the stale `[HIGH] Atomic store RMW` follow-up (already fully delivered by merged TICKET-21/PR #16, incl. concurrency-regression tests); no new PR minted this fire. 5 PRs still open/awaiting TL merge: #30 TICKET-48, #29 TICKET-47, #28 TICKET-46, #27 TICKET-24a, #25 moderation CI-WAIT; ⚠️ Vercel deploy rate-limited ~24h from 07-09)_
+_Last updated: 2026-07-11 (heartbeat #6: IDLE — state unchanged since #5, the same 5 PRs still open/unmerged; every remaining item is claimed by an open PR or would collide, so no new deliverable increment exists. Bottleneck = human-merge throughput + Vercel rate-limit, not dev throughput. Recommend batch-merging when the rate-limit clears or pausing the boraoke heartbeat until the pile drains.)_
+_Prior: (heartbeat #5: backlog reconciliation — corrected the stale `[HIGH] Atomic store RMW` follow-up (already fully delivered by merged TICKET-21/PR #16, incl. concurrency-regression tests); no new PR minted. 5 PRs still open/awaiting TL merge: #30 TICKET-48, #29 TICKET-47, #28 TICKET-46, #27 TICKET-24a, #25 moderation CI-WAIT; ⚠️ Vercel deploy rate-limited ~24h from 07-09)_
 
 ## Needs user (TL)
 
