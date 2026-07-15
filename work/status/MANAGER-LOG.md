@@ -1,5 +1,14 @@
 # cantai — Manager Log
 
+## 2026-07-15 — Heartbeat fire #16 (autonomous, unattended) — 🟡 BLOCKED-PILE (no new PR)
+
+- **Step 0 cold-resume:** reloaded CLAUDE.md §§1–4 + boraoke's BOARD.md/MANAGER-LOG.md from disk. boraoke = the `cantai` checkout (`git@github.com:paulosalvatore/boraoke.git`), shared HEAD on `main`. Ran from the framework tab but operated only on the boraoke product's own repo/docs (no framework mutation).
+- **Step 0.5 re-verify (all load-bearing claims GREEN):** `curl -sI https://boraoke.com/` → **HTTP 200** (live); `gh pr list --state open` → **[#35 only]**; `gh pr view 35` → **`mergeable: MERGEABLE`, `mergeStateStatus: CLEAN`**, all checks SUCCESS (build-and-test + Vercel). The F110 JSONL false-conflict that dogged #31–#34 is **gone** — GitHub now reports #35 clean because the `*.jsonl merge=union` driver (`faf4020`) is on `main`. Board was already accurate; no stale premise to reconcile.
+- **Step 1 selection → nothing safe/auto-actionable:** boraoke is a fully-GATED product (every `main` merge auto-deploys live boraoke.com), so an unattended fire never merges #35 — it stays delivered-to-TL. Every remaining backlog item is (a) ambiguous/needs-design — response over-echo trims + `patronUuid` GET projection are entangled with patron own-row highlighting; (b) a frontend change needing a visual gate at LOW value — TV self-heal nits F1-nit-1/2, `setQueue` if-changed diff; (c) unverifiable-locally — TV-e2e CI flake MED; or (d) a real deferred design change — FU-2b dual-bucket search limiter, FU-1 server playability signal. The clean backend-only pending-store item was already delivered as #35.
+- **Decision:** no new PR. Minting another LOW-value opus-gated PR would only grow the deliver-not-merge pile — the exact token-burning call fires #5/#6/#14 flagged. The bottleneck is human-merge throughput, not dev throughput. Deferential parallel-driver posture: touched no worktree/branch/PR, edited only status docs additively.
+- **Ball is with the TL:** merge **PR #35** (TICKET-53, gate-green + cleanly mergeable) when ready to deploy boraoke.com. https://github.com/paulosalvatore/boraoke/pull/35
+- **Outcome: `blocked-pile`** (the documented boraoke case; treated like idle for backoff — cadence auto-extends toward daily; the human-flag stays on the board).
+
 ## 2026-07-12 — TM interactive session (TL-directed) — ✅ QUEUE DRAINED: batch-merged #31–#34
 
 - **Trigger:** TL opened a boraoke TM session ("How's the roadmap / where's the new work / is heartbeat working / what did they do?"). After a repo-truth readout (roadmap v2 + the 4-PR deliver-not-merge pile + the heartbeat structural wall), TL chose **"batch-merge all 4."**
