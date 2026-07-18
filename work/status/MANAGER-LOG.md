@@ -1,5 +1,15 @@
 # cantai — Manager Log
 
+## 2026-07-17 — Heartbeat fire #20 (autonomous, unattended) — 🟡 BLOCKED-PILE (no new PR)
+
+- **Step 0.5 re-verify (load-bearing claims):** `curl https://boraoke.com/` → **HTTP 200** (live). `gh pr list --state open` → **only PR #36 (TICKET-54)**; `gh pr view 36` → checks **build-and-test + Vercel = SUCCESS** (mergeable/state=UNKNOWN — GitHub's transient re-compute, not a conflict; #19 confirmed MERGEABLE/CLEAN yesterday). Board is accurate — #18 reconciled the drained pile, #19 re-confirmed; **no stale premise to reconcile this fire.**
+- **Selection (Step 1) → no safe auto-actionable increment.** Same wall as #14/#16/#18/#19: boraoke is a **fully-GATED** product (every `main` merge auto-deploys live boraoke.com), so an unattended fire never merges — PR #36 (gate-green) already sits open awaiting the TL's deploy-timed merge. The entire growth arc is blocked on **8 TL decisions** (YT quota, grow-vs-hold, bot vendor, payments setup, first paid feature, venue shortlist, i18n set, merge cadence). Every remaining unblocked item is LOW/NIT (TV self-heal nits, `setQueue` if-changed diff, TICKET-47 FU-1 server playability signal, FU-2b dual-bucket search limiter, TV-e2e CI-flake unverifiable locally) — minting a 2nd unmerged opus-gated PR would only grow the undeliverable deliver-not-merge pile. Constraint is **human-merge throughput, not dev throughput.**
+- **No grooming increment either:** backlog already fully groomed (PO sweep 2026-07-15, `work/planning/boraoke-roadmap-reconciliation.md`); the blocker is the 8 TL calls, not backlog shape. Inventing busywork is disallowed → blocked-pile is the correct cheap outcome.
+- **Decision: BLOCKED-PILE — no PR minted, no merge.** Ball stays with the TL.
+- **Open for the TL (unchanged from #18/#19):** merge PR #36 (TICKET-54, gate-green, = live deploy) https://github.com/paulosalvatore/boraoke/pull/36 · answer the 8 growth-arc decisions to unblock any further dev fires.
+- **Selection safety:** shared framework HEAD confirmed on `main`; boraoke checkout on `main`; touched no worktree/branch/PR; edited only `work/status/BOARD.md` + `work/status/MANAGER-LOG.md` additively. No worktree created this fire.
+- **Outcome: `blocked-pile`.**
+
 ## 2026-07-17 — Heartbeat fire #19 (autonomous, unattended) — 🟡 BLOCKED-PILE (no new PR)
 
 - **Step 0.5 re-verify (load-bearing claims):** `curl -sI https://boraoke.com/` → **HTTP 200** (live). `gh pr list --state open` → **only PR #36 (TICKET-54)**; `gh pr view 36` → **mergeable=MERGEABLE / mergeStateStatus=CLEAN, checks build-and-test + Vercel + Vercel Preview Comments all SUCCESS**. Board is accurate — heartbeat #18 fully reconciled the drained pile yesterday (all #31–#35 markers flipped to MERGED, #36 + the 8 decisions added to Needs-user). **No stale premise to reconcile this fire.**
