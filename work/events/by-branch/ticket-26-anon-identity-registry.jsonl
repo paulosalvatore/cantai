@@ -1,0 +1,1 @@
+{"v": "1", "ts": "2026-07-20T16:20:42Z", "actor": "dev", "product": "boraoke", "ticket": "TICKET-26", "pr": null, "event": "work_committed", "payload": {"branch": "ticket/26-anon-identity-registry", "short_sha": "cdb85a3", "message_slug": "TICKET-26: anonymous identity registry (Layer 1)"}}
