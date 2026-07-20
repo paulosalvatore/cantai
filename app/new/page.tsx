@@ -56,10 +56,20 @@ export default function NewRoomPage() {
     if (!name.trim()) return;
     setCreating(true);
     try {
+      // TICKET-26: send the device's existing patronUuid (if any — same
+      // localStorage key PatronRoom.tsx uses) so the server can adopt it as
+      // the room's creatorUuid instead of minting an unrelated identity for a
+      // host who already has one from a prior room visit. Optional — room
+      // creation works fine without it (the server mints/reuses via cookie).
+      let patronUuid: string | undefined;
+      try {
+        patronUuid = window.localStorage.getItem("cantai_patron_uuid") ?? undefined;
+      } catch { /* sandboxed */ }
+
       const res = await fetch("/api/rooms", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim() }),
+        body: JSON.stringify({ name: name.trim(), patronUuid }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {

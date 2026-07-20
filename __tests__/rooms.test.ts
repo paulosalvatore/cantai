@@ -157,6 +157,27 @@ describe("createRoom / getRoom / getPublicRoom", () => {
   });
 });
 
+describe("createRoom creatorUuid (TICKET-26)", () => {
+  const UUID = "123e4567-e89b-42d3-a456-426614174000";
+
+  it("persists creatorUuid when passed, absent from the public view", async () => {
+    const created = await createRoom("Bar Com Dono", UUID);
+    if (!created) throw new Error("room ceiling hit in test");
+    expect(created.room.creatorUuid).toBe(UUID);
+
+    const fetched = await getRoom(created.room.id);
+    expect(fetched?.creatorUuid).toBe(UUID);
+
+    const pub = await getPublicRoom(created.room.id);
+    expect(pub).not.toHaveProperty("creatorUuid");
+  });
+
+  it("omitting creatorUuid still creates a valid room (back-compat)", async () => {
+    const created = await mustCreateRoom("Bar Sem Dono");
+    expect(created.room.creatorUuid).toBeUndefined();
+  });
+});
+
 describe("global room ceiling (security HIGH-1)", () => {
   it("roomMax defaults to 500 and honors ROOM_MAX", () => {
     delete process.env.ROOM_MAX;
