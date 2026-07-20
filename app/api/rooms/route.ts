@@ -12,6 +12,8 @@ import {
 } from "@/lib/room-create-throttle";
 import { track } from "@/lib/telemetry";
 import { getTranslations } from "next-intl/server";
+import { applyIdentityCookie, resolveIdentity } from "@/lib/identity";
+import { identityStore } from "@/lib/identity-store";
 
 const MAX_BODY_BYTES = 1024;
 const MAX_NAME = 60;
@@ -88,6 +90,14 @@ export async function POST(req: NextRequest) {
     typeof body === "object" && body !== null
       ? (body as Record<string, unknown>).name
       : undefined;
+  // TICKET-26: optional pre-existing client-minted patronUuid, sent for
+  // creator-continuity when the host previously joined a room on this device.
+  // Purely best-effort — room creation never depends on it (see resolveIdentity
+  // below, which mints/reuses via the identity cookie regardless).
+  const patronUuid =
+    typeof body === "object" && body !== null
+      ? (body as Record<string, unknown>).patronUuid
+      : undefined;
 
   if (typeof name !== "string" || name.trim().length === 0) {
     return NextResponse.json({ error: "Venue name is required" }, { status: 400 });
@@ -99,7 +109,12 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const created = await createRoom(name);
+  // TICKET-26: resolve/register the creator's anonymous identity BEFORE
+  // creating the room so `creatorUuid` can be persisted on the record. Fail-open
+  // (identity.ok === false) never blocks room creation — see `lib/identity.ts`.
+  const identity = await resolveIdentity(req, patronUuid);
+
+  const created = await createRoom(name, identity.ok ? identity.uuid : undefined);
   if (!created) {
     // Global ROOM_MAX ceiling reached (HIGH-1) — polite, non-technical copy.
     const te = await getTranslations("Errors");
@@ -111,7 +126,13 @@ export async function POST(req: NextRequest) {
   await registerRoomCreation(ip);
   void track("room_created", { roomId: created.room.id }); // TICKET-12: fire-and-forget, fail-open
 
-  return NextResponse.json(
+  // TICKET-26: index this room under the creator's identity (best-effort — a
+  // failure here never fails room creation, which already succeeded above).
+  if (identity.ok) {
+    identityStore.addRoom(identity.uuid, created.room.id).catch(() => {});
+  }
+
+  const res = NextResponse.json(
     {
       id: created.room.id,
       name: created.room.name,
@@ -124,4 +145,6 @@ export async function POST(req: NextRequest) {
     },
     { status: 201 },
   );
+  if (identity.ok) applyIdentityCookie(res, identity.uuid);
+  return res;
 }

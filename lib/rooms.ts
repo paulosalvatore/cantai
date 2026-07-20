@@ -68,6 +68,16 @@ export interface Room {
   hostCodeHash: string;
   createdAt: string; // ISO 8601
   settings: RoomSettings;
+  /**
+   * The registered anonymous identity (`identity:{uuid}`, TICKET-26) that
+   * created this room, if identity registration succeeded at creation time.
+   * Optional/absent for legacy rooms created before TICKET-26 and for rooms
+   * created while the identity store was down (fail-open — creation never
+   * blocks on this). This is the O(1) hook TICKET-28's OAuth claim reads via
+   * `identity:{uuid}:rooms` — see `lib/identity-store.ts`. Server-side
+   * bookkeeping only: deliberately NOT part of `PublicRoom` below.
+   */
+  creatorUuid?: string;
 }
 
 /** Client-safe room view — never leaks the host-code hash. */
@@ -327,7 +337,10 @@ export interface CreatedRoom {
  * hash (MEDIUM-2). Returns `null` when the global ROOM_MAX ceiling is reached
  * (HIGH-1) — callers reply 503 "estamos lotados".
  */
-export async function createRoom(name: string): Promise<CreatedRoom | null> {
+export async function createRoom(
+  name: string,
+  creatorUuid?: string,
+): Promise<CreatedRoom | null> {
   if ((await roomBackend.count()) >= roomMax()) return null;
   const trimmed = name.trim().slice(0, 60);
   const base = slugify(trimmed);
@@ -351,6 +364,7 @@ export async function createRoom(name: string): Promise<CreatedRoom | null> {
     hostCodeHash: hashHostCode(hostCode),
     createdAt: new Date().toISOString(),
     settings: { mode: DEFAULT_ROOM_MODE },
+    ...(creatorUuid ? { creatorUuid } : {}),
   };
   await roomBackend.create(room);
   return { room, hostCode };

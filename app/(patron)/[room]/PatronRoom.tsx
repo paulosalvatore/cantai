@@ -90,6 +90,34 @@ export default function PatronRoom({
     }
     setPatronUuid(id);
 
+    // TICKET-26: register/refresh the server-side anonymous identity, adopting
+    // this existing localStorage uuid for continuity (own-row highlighting
+    // keeps working, no duplicate identity). Fire-and-forget — the join flow
+    // never awaits this; a network/store failure is silently ignored and the
+    // local uuid above keeps working exactly as before (fail-open, acceptance
+    // #4). The server response uuid should normally equal what we sent; if it
+    // ever differs (e.g. this device's cookie already pointed elsewhere) we
+    // adopt the server's uuid so future submissions stay consistent with the
+    // cookie, which is authoritative.
+    fetch("/api/identity", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ legacyUuid: id }),
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { uuid?: string; registered?: boolean } | null) => {
+        if (data?.registered && data.uuid && data.uuid !== id) {
+          try {
+            ls.setItem("cantai_patron_uuid", data.uuid);
+          } catch { /* sandboxed */ }
+          setPatronUuid(data.uuid);
+        }
+      })
+      .catch(() => {
+        // network hiccup / store outage — local uuid above already works;
+        // registration retries on the next page load.
+      });
+
     // Remember this as the last room joined (landing prefill).
     try { ls.setItem("cantai_last_room", roomId); } catch { /* sandboxed */ }
 
